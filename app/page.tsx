@@ -351,7 +351,6 @@ function SettingsContent({
     <div className="settings-stack">
       <section className="settings-block">
         <p className="block-title">名前のメモ</p>
-        <p className="block-note">例：「２年３組」や「テスト日」など自由に入力します。</p>
         <input
           type="text"
           value={label}
@@ -359,7 +358,7 @@ function SettingsContent({
           placeholder="例：２年３組"
         />
         <p className="block-tip">
-          書き出すと「時間割 - {label || "設定"}.json」という名前で保存されます。
+          「時間割 - {label || "設定"}.json」という名前でダウンロードされます。
         </p>
       </section>
 
@@ -369,10 +368,6 @@ function SettingsContent({
             <p className="block-title">ベルの時間</p>
             <p className="block-note">上から順番に鳴ります。必要なぶんだけ追加してください。</p>
           </div>
-          <button className="ghost-button" onClick={onAddRow}>
-            <Plus aria-hidden size={16} />
-            ＋じかんを入れる
-          </button>
         </div>
         <ol className="time-list">
           {rows.map((row, index) => (
@@ -394,12 +389,18 @@ function SettingsContent({
           ))}
         </ol>
         {!rows.length && (
-          <p className="block-note">「＋じかんを入れる」を押して時刻を登録してください。</p>
+          <p className="block-note">「チャイムを追加」を押して時刻を登録してください。</p>
         )}
+        <div className="block-footer">
+          <button className="ghost-button" onClick={onAddRow}>
+            <Plus aria-hidden size={16} />
+            チャイムを追加
+          </button>
+        </div>
       </section>
 
       <section className="settings-block">
-        <p className="block-title">保存と読み込み</p>
+        <p className="block-title">ダウンロードと読み込み</p>
         <div className="action-row">
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
@@ -424,9 +425,6 @@ function SettingsContent({
           </button>
         </div>
         {importError && <p className="error-message">{importError}</p>}
-        <p className="block-tip">
-          朝は「JSONを読み込む」で前日のファイルを選ぶだけでOKです。
-        </p>
       </section>
 
       <section className="settings-block">
