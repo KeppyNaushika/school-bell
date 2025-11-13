@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { M_PLUS_1_Code } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,6 +8,13 @@ export const metadata: Metadata = {
     "学校の時間割をもとにチャイム時刻を表示・設定できる全画面タイマー",
 };
 
+const mPlus = M_PLUS_1_Code({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mplus",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -14,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body className={mPlus.variable}>{children}</body>
     </html>
   );
 }

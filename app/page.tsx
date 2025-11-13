@@ -241,20 +241,18 @@ export default function Home() {
     <main className="app-shell">
       <audio ref={audioRef} src="/audio/chime.wav" preload="auto" />
       <div className="floating-buttons">
-        <button onClick={() => setPanel("settings")}>
+        <button aria-label="設定を開く" onClick={() => setPanel("settings")}>
           <Settings aria-hidden size={18} />
-          設定
         </button>
-        <button onClick={() => setPanel("guide")}>
+        <button aria-label="ガイドを開く" onClick={() => setPanel("guide")}>
           <HelpCircle aria-hidden size={18} />
-          解説
         </button>
       </div>
 
       <section className="display-stage" aria-live="polite">
         <p className="display-now">{formatTime(now)}</p>
         <div className="display-next">
-          <Bell aria-hidden size={96} className="bell-icon" />
+          <Bell aria-hidden size={42} className="bell-icon" />
           <span>{nextBell ? nextBell.time : "--:--"}</span>
         </div>
       </section>
