@@ -65,6 +65,7 @@ const formatTime = (date: Date, withSeconds = true) =>
     hour: "2-digit",
     minute: "2-digit",
     second: withSeconds ? "2-digit" : undefined,
+    timeZone: "Asia/Tokyo",
   });
 
 export default function Home() {
@@ -75,7 +76,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState("");
   const [importError, setImportError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const statusTimer = useRef<number>();
+  const statusTimer = useRef<number | null>(null);
 
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => a.time.localeCompare(b.time)),
@@ -402,11 +403,11 @@ function SettingsContent({
         <div className="action-row">
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
-            JSONを書き出し
+            時間割データをダウンロード
           </button>
           <label className="file-label">
             <Upload aria-hidden size={18} />
-            JSONを読み込む
+            時間割データを読み込む
             <input
               type="file"
               accept="application/json"

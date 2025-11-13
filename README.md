@@ -27,8 +27,13 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## GitHub Pages への公開
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+このリポジトリには `.github/workflows/deploy.yml` が含まれており、`main` ブランチに push すると自動でビルド＆公開されます。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. GitHub のリポジトリ設定 → Pages で、ブランチに `gh-pages`、フォルダーに `/` を指定します（初回のみ）。
+2. `main` に変更を push すると Actions が `npm ci && npm run build` を実行し、`out/` を GitHub Pages へデプロイします。
+3. `workflow_dispatch` から手動実行も可能です。ベースパスは自動でリポジトリ名（`username.github.io` リポジトリの場合は空）に設定されます。
+4. 独自ドメインを使う場合は `public/CNAME` を追加すると、エクスポート時に `out/CNAME` が含まれます。
+
+これによりローカルでは `npm run dev`、本番公開は push だけで完結します。
