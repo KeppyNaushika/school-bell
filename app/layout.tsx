@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Zen_Maru_Gothic } from "next/font/google";
+import { M_PLUS_1p } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,11 +8,11 @@ export const metadata: Metadata = {
     "学校の時間割をもとにチャイム時刻を表示・設定できる全画面タイマー",
 };
 
-const zenMaru = Zen_Maru_Gothic({
+const mPlus = M_PLUS_1p({
   weight: ["400", "500", "700"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-zen-maru",
+  variable: "--font-mplus",
 });
 
 export default function RootLayout({
@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={zenMaru.variable}>{children}</body>
+      <body className={mPlus.variable}>{children}</body>
     </html>
   );
 }

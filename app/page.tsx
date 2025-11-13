@@ -252,7 +252,6 @@ export default function Home() {
       <section className="display-stage" aria-live="polite">
         <p className="display-now">{formatTime(now)}</p>
         <div className="display-next">
-          <span className="next-label">次のチャイム</span>
           <div className="next-time">
             <Bell aria-hidden size={36} className="bell-icon" />
             <span>{nextBell ? nextBell.time : "--:--"}</span>
