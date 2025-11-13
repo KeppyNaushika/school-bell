@@ -37,14 +37,7 @@ type StoredPayload = {
 const STORAGE_KEY = "school-bell-settings@v1";
 const DEFAULT_LABEL = "標準設定";
 const DEFAULT_TIMES = [
-  "08:30",
-  "09:20",
-  "10:10",
-  "11:00",
-  "11:50",
-  "13:30",
-  "14:20",
-  "15:10",
+  "08:15",
 ];
 
 const newId = () =>
@@ -175,8 +168,21 @@ export default function Home() {
     );
   };
 
-  const handleAddRow = () => {
-    setRows((prev) => [...prev, { id: newId(), time: "00:00" }]);
+  const handleAddRowAfter = (afterId?: string) => {
+    const nextRow: BellRow = { id: newId(), time: "00:00" };
+    setRows((prev) => {
+      if (!afterId) {
+        return [...prev, nextRow];
+      }
+      const index = prev.findIndex((row) => row.id === afterId);
+      if (index === -1) {
+        return [...prev, nextRow];
+      }
+      const copy = [...prev];
+      copy.splice(index + 1, 0, nextRow);
+      return copy;
+    });
+    return nextRow.id;
   };
 
   const handleRemoveRow = (id: string) => {
@@ -299,7 +305,7 @@ export default function Home() {
                   rows={rows}
                   importError={importError}
                   onLabelChange={setLabel}
-                  onAddRow={handleAddRow}
+                  onAddRowAfter={handleAddRowAfter}
                   onRemoveRow={handleRemoveRow}
                   onTimeChange={handleTimeChange}
                   onExport={handleExport}
@@ -325,7 +331,7 @@ type SettingsContentProps = {
   rows: BellRow[];
   importError: string;
   onLabelChange: (value: string) => void;
-  onAddRow: () => void;
+  onAddRowAfter: (afterId?: string) => string;
   onRemoveRow: (id: string) => void;
   onTimeChange: (id: string, value: string) => void;
   onExport: () => void;
@@ -339,7 +345,7 @@ function SettingsContent({
   rows,
   importError,
   onLabelChange,
-  onAddRow,
+  onAddRowAfter,
   onRemoveRow,
   onTimeChange,
   onExport,
@@ -347,6 +353,43 @@ function SettingsContent({
   onReset,
   onTestChime,
 }: SettingsContentProps) {
+  const inputRefs = useRef(new Map<string, HTMLInputElement>());
+
+  const focusInput = (id: string) => inputRefs.current.get(id)?.focus();
+
+  const handleTimeKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    index: number,
+    rowId: string,
+  ) => {
+    const prevRow = rows[index - 1];
+    const nextRow = rows[index + 1];
+
+    if (
+      (event.key === "ArrowUp" || event.key === "ArrowLeft") &&
+      prevRow
+    ) {
+      event.preventDefault();
+      focusInput(prevRow.id);
+      return;
+    }
+
+    if (
+      (event.key === "ArrowDown" || event.key === "ArrowRight") &&
+      nextRow
+    ) {
+      event.preventDefault();
+      focusInput(nextRow.id);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const newRowId = onAddRowAfter(rowId);
+      queueMicrotask(() => focusInput(newRowId));
+    }
+  };
+
   return (
     <div className="settings-stack">
       <section className="settings-block">
@@ -361,9 +404,6 @@ function SettingsContent({
 
       <section className="settings-block">
         <p className="block-title">ダウンロードと読み込み</p>
-        <p className="block-tip">
-          「時間割 - {label || "設定"}.json」という名前でダウンロードされます。
-        </p>
         <div className="action-row">
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
@@ -414,7 +454,15 @@ function SettingsContent({
               <input
                 type="time"
                 value={row.time}
+                ref={(element) => {
+                  if (element) {
+                    inputRefs.current.set(row.id, element);
+                  } else {
+                    inputRefs.current.delete(row.id);
+                  }
+                }}
                 onChange={(event) => onTimeChange(row.id, event.target.value)}
+                onKeyDown={(event) => handleTimeKeyDown(event, index, row.id)}
               />
               <button
                 className="icon-button danger"
@@ -427,7 +475,7 @@ function SettingsContent({
           ))}
         </ol>
         <div className="block-footer">
-          <button className="ghost-button" onClick={onAddRow}>
+          <button className="ghost-button" onClick={() => onAddRowAfter()}>
             <Plus aria-hidden size={16} />
             チャイムを追加
           </button>
@@ -465,7 +513,7 @@ function GuideContent() {
         </article>
       ))}
       <p className="block-tip">
-        GitHub Pages 連携済みなら、main に push するだけで自動で公開されます。
+        {'GitHub Pages 公開方法: Repository > Code and automation > Pages > Build and deployment > Source > Github Actions で origin/main ブランチに push するだけで GitHub Pages に公開されます。'}
       </p>
     </div>
   );
