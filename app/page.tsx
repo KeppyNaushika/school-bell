@@ -245,7 +245,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <audio ref={audioRef} src="/audio/chime.wav" preload="auto" />
+      <audio ref={audioRef} src="/audio/sei_ge_chaimu03.mp3" preload="auto" />
       <div className="floating-buttons">
         <button aria-label="設定を開く" onClick={() => setPanel("settings")}>
           <Settings aria-hidden size={18} />
@@ -488,20 +488,24 @@ function SettingsContent({
 function GuideContent() {
   const steps = [
     {
-      title: "1. 時間を入れる",
-      body: "右上の歯車アイコン → 設定 → 「チャイムを追加」で必要な数だけ時刻を登録します。",
+      title: "1. 時間を設定する",
+      body: "歯車アイコン → 設定 → 「チャイムを追加」でベル時刻を入力し、上下キーで順番も揃えます。",
     },
     {
-      title: "2. 朝の準備",
-      body: "前日に書き出したJSONを「時間割データを読み込む」で選ぶと、並び順ごとそのまま戻ります。",
+      title: "2. 時間割を配布する",
+      body: "「時間割データをダウンロード」で JSON を保存し、共有フォルダーや USB で先生方に配布します。",
     },
     {
-      title: "3. 表示する",
-      body: "ブラウザーを全画面にすると、大きなテレビでも数字だけがはっきり見えます。",
+      title: "3. ファイルを読み込む",
+      body: "朝は「時間割データを読み込む」で配布済みファイルを選ぶだけ。前日の並びがそのまま戻ります。",
     },
     {
-      title: "4. 困ったら",
-      body: "音が出ないときは一度だけ「チャイムをテスト再生」を押してください。時刻を消しすぎたら再度「チャイムを追加」で復旧できます。",
+      title: "4. 表示する",
+      body: "ブラウザーを全画面にすると、大型モニターでも現在時刻と次ベルがくっきり見えます。",
+    },
+    {
+      title: "5. 困ったら",
+      body: "音が出ないときは「チャイムをテスト再生」を一度押します。時刻を消してしまっても Enter で新しい行を追加できます。",
     },
   ];
   return (
@@ -512,9 +516,6 @@ function GuideContent() {
           <p>{step.body}</p>
         </article>
       ))}
-      <p className="block-tip">
-        {'GitHub Pages 公開方法: Repository > Code and automation > Pages > Build and deployment > Source > Github Actions で origin/main ブランチに push するだけで GitHub Pages に公開されます。'}
-      </p>
     </div>
   );
 }
