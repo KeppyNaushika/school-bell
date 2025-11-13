@@ -252,8 +252,11 @@ export default function Home() {
       <section className="display-stage" aria-live="polite">
         <p className="display-now">{formatTime(now)}</p>
         <div className="display-next">
-          <Bell aria-hidden size={42} className="bell-icon" />
-          <span>{nextBell ? nextBell.time : "--:--"}</span>
+          <span className="next-label">次のチャイム</span>
+          <div className="next-time">
+            <Bell aria-hidden size={36} className="bell-icon" />
+            <span>{nextBell ? nextBell.time : "--:--"}</span>
+          </div>
         </div>
       </section>
 
@@ -439,11 +442,11 @@ function GuideContent() {
   const steps = [
     {
       title: "1. 時間を入れる",
-      body: "設定ボタン → 「＋じかんを入れる」でベルの時刻を入力します。入力欄をタップして数字を選ぶだけです。",
+      body: "右上の歯車アイコン → 設定 → 「チャイムを追加」で必要な数だけ時刻を登録します。",
     },
     {
       title: "2. 朝の準備",
-      body: "前日に書き出したファイルを「JSONを読み込む」で選ぶと、同じ設定が一瞬で戻ります。",
+      body: "前日に書き出したJSONを「時間割データを読み込む」で選ぶと、並び順ごとそのまま戻ります。",
     },
     {
       title: "3. 表示する",
@@ -451,7 +454,7 @@ function GuideContent() {
     },
     {
       title: "4. 困ったら",
-      body: "音が出ないときは一度だけ「チャイムをテスト再生」を押してください。ベルの時間が空欄なら「＋」で追加してください。",
+      body: "音が出ないときは一度だけ「チャイムをテスト再生」を押してください。時刻を消しすぎたら再度「チャイムを追加」で復旧できます。",
     },
   ];
   return (
@@ -463,7 +466,7 @@ function GuideContent() {
         </article>
       ))}
       <p className="block-tip">
-        GitHub Pages に出すときは「npm run build」→「out」フォルダーをアップロードするだけです。
+        GitHub Pages 連携済みなら、main に push するだけで自動で公開されます。
       </p>
     </div>
   );
