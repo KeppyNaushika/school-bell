@@ -61,6 +61,16 @@ const formatTime = (date: Date, withSeconds = true) =>
     timeZone: "Asia/Tokyo",
   });
 
+const sanitizedBasePath =
+  process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? "";
+const audioSourcePath = `/${[
+  sanitizedBasePath,
+  "audio",
+  "sei_ge_chaimu03.mp3",
+]
+  .filter(Boolean)
+  .join("/")}`;
+
 export default function Home() {
   const [panel, setPanel] = useState<"settings" | "guide" | null>(null);
   const [label, setLabel] = useState(DEFAULT_LABEL);
@@ -245,7 +255,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <audio ref={audioRef} src="/audio/sei_ge_chaimu03.mp3" preload="auto" />
+      <audio ref={audioRef} src={audioSourcePath} preload="auto" />
       <div className="floating-buttons">
         <button aria-label="設定を開く" onClick={() => setPanel("settings")}>
           <Settings aria-hidden size={18} />
