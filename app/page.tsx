@@ -364,7 +364,7 @@ export default function Home() {
         <p className="display-now">{formatTime(now)}</p>
         <div className="display-next">
           <div className="next-time">
-            <Bell aria-hidden size={36} className="bell-icon" />
+            <Bell aria-hidden size={20} className="bell-icon" />
             <span>{nextBell ? nextBell.time : "--:--"}</span>
           </div>
         </div>
@@ -513,13 +513,14 @@ function SettingsContent({
       <section className="settings-block">
         <p className="block-title">ダウンロードと読み込み</p>
         <div className="action-row">
-          <button onClick={onExport}>
-            <Download aria-hidden size={18} />
-            時間割データをダウンロード
-          </button>
           <button className="ghost-button" onClick={onCopyLink}>
             <Link2 aria-hidden size={18} />
             リンクをコピー
+          </button>
+          <div className="h-2"></div>
+          <button onClick={onExport}>
+            <Download aria-hidden size={18} />
+            時間割データをダウンロード
           </button>
           <label className="file-label">
             <Upload aria-hidden size={18} />
@@ -608,8 +609,8 @@ function GuideContent() {
       body: "「リンクをコピー」で共有 URL を送信するか、「時間割データをダウンロード」で JSON を配布します。",
     },
     {
-      title: "3. ファイルを読み込む",
-      body: "朝は「時間割データを読み込む」で配布済みファイルを選ぶだけ。前日の並びがそのまま戻ります。",
+      title: "3. 時間割を開く",
+      body: "共有 URL を開くか、「時間割データを読み込む」で配布済みファイルを選ぶだけ。設定した並びがそのまま戻ります。",
     },
     {
       title: "4. 表示する",
