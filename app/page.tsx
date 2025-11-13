@@ -4,6 +4,7 @@ import {
   Bell,
   Download,
   HelpCircle,
+  Link2,
   Play,
   Plus,
   RotateCcw,
@@ -76,15 +77,32 @@ const buildAudioSourcePath = () => {
 
 const audioSourcePath = buildAudioSourcePath();
 
+const TIME_HHMM = /^\d{2}:\d{2}$/;
+const TIME_PARAM = /^\d{4}$/;
+
+const toParamTime = (time: string) => time.replace(":", "");
+
+const fromParamTime = (value: string) => {
+  if (!TIME_PARAM.test(value)) return null;
+  const hh = value.slice(0, 2);
+  const mm = value.slice(2);
+  if (Number(hh) > 23 || Number(mm) > 59) return null;
+  return `${hh}:${mm}`;
+};
+
 const parseTimesParam = (value: string) =>
   value
     .split("-")
-    .map((time) => time.trim())
-    .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+    .map((segment) => fromParamTime(segment.trim()))
+    .filter((time): time is string => Boolean(time))
     .sort((a, b) => a.localeCompare(b));
 
 const buildTimesParam = (rows: BellRow[]) =>
-  rows.map((row) => row.time).join("-");
+  rows
+    .map((row) => row.time)
+    .filter((time) => TIME_HHMM.test(time))
+    .map(toParamTime)
+    .join("-");
 
 export default function Home() {
   const [panel, setPanel] = useState<"settings" | "guide" | null>(null);
@@ -321,6 +339,15 @@ export default function Home() {
     }
   };
 
+  const handleCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      handleStatus("共有リンクをコピーしました");
+    } catch {
+      handleStatus("リンクをコピーできませんでした");
+    }
+  }, [handleStatus]);
+
   return (
     <main className="app-shell">
       <audio ref={audioRef} src={audioSourcePath} preload="auto" />
@@ -390,6 +417,7 @@ export default function Home() {
                   onImport={handleImport}
                   onReset={handleReset}
                   onTestChime={handleTestChime}
+                  onCopyLink={handleCopyLink}
                 />
               ) : (
                 <GuideContent />
@@ -416,6 +444,7 @@ type SettingsContentProps = {
   onImport: (file: File | null) => Promise<void>;
   onReset: () => void;
   onTestChime: () => void;
+  onCopyLink: () => void;
 };
 
 function SettingsContent({
@@ -430,6 +459,7 @@ function SettingsContent({
   onImport,
   onReset,
   onTestChime,
+  onCopyLink,
 }: SettingsContentProps) {
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
 
@@ -486,6 +516,10 @@ function SettingsContent({
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
             時間割データをダウンロード
+          </button>
+          <button className="ghost-button" onClick={onCopyLink}>
+            <Link2 aria-hidden size={18} />
+            リンクをコピー
           </button>
           <label className="file-label">
             <Upload aria-hidden size={18} />
@@ -567,11 +601,11 @@ function GuideContent() {
   const steps = [
     {
       title: "1. 時間を設定する",
-      body: "歯車アイコン → 設定 → 「チャイムを追加」でベル時刻を入力し、上下キーで順番も揃えます。",
+      body: "歯車アイコン → 設定 → 「チャイムを追加」でベル時刻を入力します。",
     },
     {
       title: "2. 時間割を配布する",
-      body: "「時間割データをダウンロード」で JSON を保存し、共有フォルダーや USB で先生方に配布します。",
+      body: "「リンクをコピー」で共有 URL を送信するか、「時間割データをダウンロード」で JSON を配布します。",
     },
     {
       title: "3. ファイルを読み込む",
