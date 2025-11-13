@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { M_PLUS_1p } from "next/font/google";
+import { M_PLUS_Rounded_1c } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "学校の時間割をもとにチャイム時刻を表示・設定できる全画面タイマー",
 };
 
-const mPlus = M_PLUS_1p({
+const mPlus = M_PLUS_Rounded_1c({
   weight: ["400", "500", "700"],
   subsets: ["latin"],
   display: "swap",

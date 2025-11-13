@@ -1,6 +1,6 @@
+@import "tailwindcss";
+
 :root {
-  font-family: var(--font-mplus), "M PLUS 1p", "BIZ UDPGothic", "Yu Gothic", "Noto Sans JP", system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #f8fafc;
   background: #010510;
   font-size: 16px;
@@ -12,6 +12,8 @@
 }
 
 body {
+  font-family: var(--font-mplus), "M PLUS Rounded 1c", "M PLUS 1p", "BIZ UDPGothic", "Yu Gothic", "Noto Sans JP", system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin: 0;
   min-height: 100vh;
   background: radial-gradient(circle at top, #0f172a, #020617 60%);
@@ -19,7 +21,7 @@ body {
 
 .app-shell {
   min-height: 100vh;
-  padding: 2.5rem clamp(1.5rem, 4vw, 4rem);
+  padding: 2.5rem 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -40,24 +42,27 @@ body {
 .display-now {
   font-size: clamp(5rem, 20vw, 18rem);
   font-weight: 700;
-  letter-spacing: 0.04em;
   margin: 0;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  white-space: nowrap;
 }
 
+
 .bell-icon {
-  color: #fde68a;
+  color: white;
   flex-shrink: 0;
 }
 
 .next-time {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: clamp(3.5rem, 11vw, 8rem);
+  gap: 1.5rem;
+  font-size: clamp(2rem, 7vw, 5rem);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  color: white;
+  opacity: 0.5;
 }
 
 .floating-buttons {

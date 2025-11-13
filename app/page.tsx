@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Copyright,
   Download,
   HelpCircle,
   Link2,
@@ -69,7 +70,7 @@ const getBasePath = () =>
   process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? "";
 
 const buildAudioSourcePath = () => {
-  const segments = [getBasePath(), "audio", "sei_ge_chaimu03.mp3"].filter(
+  const segments = [getBasePath(), "audio", "chime.wav"].filter(
     Boolean,
   );
   return `/${segments.join("/")}`;
@@ -105,7 +106,7 @@ const buildTimesParam = (rows: BellRow[]) =>
     .join("-");
 
 export default function Home() {
-  const [panel, setPanel] = useState<"settings" | "guide" | null>(null);
+  const [panel, setPanel] = useState<"settings" | "guide" | "copyright" | null>(null);
   const [label, setLabel] = useState(DEFAULT_LABEL);
   const [rows, setRows] = useState<BellRow[]>(() => createRows(DEFAULT_TIMES));
   const [now, setNow] = useState<Date>(() => new Date());
@@ -358,16 +359,40 @@ export default function Home() {
         <button aria-label="ガイドを開く" onClick={() => setPanel("guide")}>
           <HelpCircle aria-hidden size={18} />
         </button>
+        <button aria-label="著作権情報を開く" onClick={() => setPanel("copyright")}>
+          <Copyright aria-hidden size={18} />
+        </button>
       </div>
 
       <section className="display-stage" aria-live="polite">
-        <p className="display-now">{formatTime(now)}</p>
-        <div className="display-next">
-          <div className="next-time">
-            <Bell aria-hidden size={20} className="bell-icon" />
-            <div className="w-8"></div>
-            <span>{nextBell ? nextBell.time : "--:--"}</span>
-          </div>
+        <p className="display-now">
+          {(() => {
+            const time = formatTime(now);
+            const parts = time.split(":");
+            return (
+              <>
+                {parts[0]}
+                <span className="-mx-[0.3em]">：</span>
+                {parts[1]}
+                <span className="-mx-[0.3em]">：</span>
+                {parts[2]}
+              </>
+            );
+          })()}
+        </p>
+        <div className="next-time">
+          <Bell aria-hidden size={48} className="bell-icon" />
+          <span>
+            {nextBell ? (
+              <>
+                {nextBell.time.split(":")[0]}
+                <span className="-mx-[0.3em]">：</span>
+                {nextBell.time.split(":")[1]}
+              </>
+            ) : (
+              <>--<span className="-mx-[0.3em]">：</span>--</>
+            )}
+          </span>
         </div>
       </section>
 
@@ -389,10 +414,15 @@ export default function Home() {
                     <Settings aria-hidden size={20} />
                     <h2>設定</h2>
                   </>
-                ) : (
+                ) : panel === "guide" ? (
                   <>
                     <HelpCircle aria-hidden size={20} />
                     <h2>かんたんガイド</h2>
+                  </>
+                ) : (
+                  <>
+                    <Copyright aria-hidden size={20} />
+                    <h2>著作権情報</h2>
                   </>
                 )}
               </div>
@@ -420,8 +450,10 @@ export default function Home() {
                   onTestChime={handleTestChime}
                   onCopyLink={handleCopyLink}
                 />
-              ) : (
+              ) : panel === "guide" ? (
                 <GuideContent />
+              ) : (
+                <CopyrightContent />
               )}
             </div>
           </aside>
@@ -518,7 +550,6 @@ function SettingsContent({
             <Link2 aria-hidden size={18} />
             リンクをコピー
           </button>
-          <div className="h-2"></div>
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
             時間割データをダウンロード
@@ -557,9 +588,7 @@ function SettingsContent({
 
       <section className="settings-block">
         <div className="block-head">
-          <div>
-            <p className="block-title">ベルの時間</p>
-          </div>
+          <p className="block-title">ベルの時間</p>
         </div>
         <ol className="time-list">
           {rows.map((row, index) => (
@@ -568,6 +597,7 @@ function SettingsContent({
               <input
                 type="time"
                 value={row.time}
+                aria-label={`チャイム時刻 ${index + 1}`}
                 ref={(element) => {
                   if (element) {
                     inputRefs.current.set(row.id, element);
@@ -595,6 +625,43 @@ function SettingsContent({
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+function CopyrightContent() {
+  return (
+    <div className="guide-block">
+      <article>
+        <h3>音声素材について</h3>
+        <p>
+          このアプリケーションで使用されているチャイム音は、
+          <a
+            href="https://www.nhk.or.jp/archives/creative/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-300 hover:text-sky-200 underline ml-1"
+          >
+            NHKクリエイティブ・ライブラリー
+          </a>
+          から提供されています。
+        </p>
+      </article>
+      <article>
+        <h3>利用規約</h3>
+        <p>
+          音声素材の利用については、
+          <a
+            href="https://www.nhk.or.jp/archives/creative/rule.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-300 hover:text-sky-200 underline ml-1"
+          >
+            NHKクリエイティブ・ライブラリー利用規約
+          </a>
+          をご確認ください。
+        </p>
+      </article>
     </div>
   );
 }
@@ -630,6 +697,17 @@ function GuideContent() {
           <p>{step.body}</p>
         </article>
       ))}
+      <p className="text-xs opacity-40 text-center mt-4">
+        音声：
+        <a
+          href="https://www.nhk.or.jp/archives/creative/rule.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:opacity-100 transition-opacity underline"
+        >
+          NHKクリエイティブ・ライブラリー
+        </a>
+      </p>
     </div>
   );
 }
