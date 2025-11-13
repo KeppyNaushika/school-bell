@@ -350,57 +350,20 @@ function SettingsContent({
   return (
     <div className="settings-stack">
       <section className="settings-block">
-        <p className="block-title">名前のメモ</p>
+        <p className="block-title">時間割名</p>
         <input
           type="text"
           value={label}
           onChange={(event) => onLabelChange(event.target.value)}
           placeholder="例：２年３組"
         />
-        <p className="block-tip">
-          「時間割 - {label || "設定"}.json」という名前でダウンロードされます。
-        </p>
-      </section>
-
-      <section className="settings-block">
-        <div className="block-head">
-          <div>
-            <p className="block-title">ベルの時間</p>
-            <p className="block-note">上から順番に鳴ります。必要なぶんだけ追加してください。</p>
-          </div>
-        </div>
-        <ol className="time-list">
-          {rows.map((row, index) => (
-            <li key={row.id} className="time-item">
-              <span className="time-index">{index + 1}</span>
-              <input
-                type="time"
-                value={row.time}
-                onChange={(event) => onTimeChange(row.id, event.target.value)}
-              />
-              <button
-                className="icon-button danger"
-                aria-label={`${row.time} を削除`}
-                onClick={() => onRemoveRow(row.id)}
-              >
-                <Trash2 aria-hidden size={16} />
-              </button>
-            </li>
-          ))}
-        </ol>
-        {!rows.length && (
-          <p className="block-note">「チャイムを追加」を押して時刻を登録してください。</p>
-        )}
-        <div className="block-footer">
-          <button className="ghost-button" onClick={onAddRow}>
-            <Plus aria-hidden size={16} />
-            チャイムを追加
-          </button>
-        </div>
       </section>
 
       <section className="settings-block">
         <p className="block-title">ダウンロードと読み込み</p>
+        <p className="block-tip">
+          「時間割 - {label || "設定"}.json」という名前でダウンロードされます。
+        </p>
         <div className="action-row">
           <button onClick={onExport}>
             <Download aria-hidden size={18} />
@@ -436,6 +399,39 @@ function SettingsContent({
           <Play aria-hidden size={18} />
           チャイムをテスト再生
         </button>
+      </section>
+
+      <section className="settings-block">
+        <div className="block-head">
+          <div>
+            <p className="block-title">ベルの時間</p>
+          </div>
+        </div>
+        <ol className="time-list">
+          {rows.map((row, index) => (
+            <li key={row.id} className="time-item">
+              <span className="time-index">{index + 1}</span>
+              <input
+                type="time"
+                value={row.time}
+                onChange={(event) => onTimeChange(row.id, event.target.value)}
+              />
+              <button
+                className="icon-button danger"
+                aria-label={`${row.time} を削除`}
+                onClick={() => onRemoveRow(row.id)}
+              >
+                <Trash2 aria-hidden size={16} />
+              </button>
+            </li>
+          ))}
+        </ol>
+        <div className="block-footer">
+          <button className="ghost-button" onClick={onAddRow}>
+            <Plus aria-hidden size={16} />
+            チャイムを追加
+          </button>
+        </div>
       </section>
     </div>
   );
