@@ -61,7 +61,8 @@ const formatTime = (date: Date, withSeconds = true) =>
     timeZone: "Asia/Tokyo",
   });
 
-const URL_PARAM_KEY = "schedule";
+const URL_PARAM_TIMES = "time";
+const URL_PARAM_LABEL = "label";
 
 const getBasePath = () =>
   process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? "";
@@ -75,42 +76,15 @@ const buildAudioSourcePath = () => {
 
 const audioSourcePath = buildAudioSourcePath();
 
-const encodeScheduleParam = (label: string, rows: BellRow[]) => {
-  if (typeof window === "undefined" || typeof window.btoa !== "function") {
-    return null;
-  }
-  try {
-    const payload = {
-      label: label?.trim() || DEFAULT_LABEL,
-      rows: rows.map((row) => row.time),
-    };
-    return window.btoa(encodeURIComponent(JSON.stringify(payload)));
-  } catch {
-    return null;
-  }
-};
+const parseTimesParam = (value: string) =>
+  value
+    .split("-")
+    .map((time) => time.trim())
+    .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+    .sort((a, b) => a.localeCompare(b));
 
-const decodeScheduleParam = (value: string) => {
-  if (typeof window === "undefined" || typeof window.atob !== "function") {
-    return null;
-  }
-  try {
-    const json = decodeURIComponent(window.atob(value));
-    const parsed = JSON.parse(json) as {
-      label?: string;
-      rows?: string[];
-    };
-    const sanitizedRows = Array.isArray(parsed.rows)
-      ? parsed.rows.filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
-      : [];
-    return {
-      label: parsed.label?.trim() || DEFAULT_LABEL,
-      rows: sanitizedRows,
-    };
-  } catch {
-    return null;
-  }
-};
+const buildTimesParam = (rows: BellRow[]) =>
+  rows.map((row) => row.time).join("-");
 
 export default function Home() {
   const [panel, setPanel] = useState<"settings" | "guide" | null>(null);
@@ -122,7 +96,8 @@ export default function Home() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const statusTimer = useRef<number | null>(null);
   const hasLoadedFromQuery = useRef(false);
-  const latestScheduleParam = useRef<string | null>(null);
+  const lastSyncedTimes = useRef<string | null>(null);
+  const lastSyncedLabel = useRef<string | null>(null);
 
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => a.time.localeCompare(b.time)),
@@ -155,16 +130,28 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const paramValue = params.get(URL_PARAM_KEY);
-    if (!paramValue) return;
-    const decoded = decodeScheduleParam(paramValue);
-    if (!decoded) return;
-    hasLoadedFromQuery.current = true;
-    latestScheduleParam.current = paramValue;
-    if (decoded.rows.length) {
-      setRows(createRows(decoded.rows));
+    const timesValue = params.get(URL_PARAM_TIMES);
+    if (!timesValue) return;
+    const parsedTimes = parseTimesParam(timesValue);
+    const labelValue = params.get(URL_PARAM_LABEL)?.trim() || DEFAULT_LABEL;
+    if (parsedTimes.length) {
+      setRows(createRows(parsedTimes));
     }
-    setLabel(decoded.label);
+    setLabel(labelValue);
+    hasLoadedFromQuery.current = true;
+    lastSyncedTimes.current = timesValue;
+    lastSyncedLabel.current = labelValue;
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          label: labelValue,
+          rows: parsedTimes.map((time) => ({ time })),
+        }),
+      );
+    } catch {
+      // ignore
+    }
   }, []);
 
   useEffect(() => {
@@ -203,12 +190,24 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const encoded = encodeScheduleParam(label, rows);
-    if (!encoded) return;
-    if (latestScheduleParam.current === encoded) return;
-    latestScheduleParam.current = encoded;
+    const timesParam = buildTimesParam(rows);
+    const labelParam = label?.trim() || DEFAULT_LABEL;
+    if (timesParam === lastSyncedTimes.current && labelParam === lastSyncedLabel.current) {
+      return;
+    }
+    lastSyncedTimes.current = timesParam;
+    lastSyncedLabel.current = labelParam;
     const url = new URL(window.location.href);
-    url.searchParams.set(URL_PARAM_KEY, encoded);
+    if (timesParam) {
+      url.searchParams.set(URL_PARAM_TIMES, timesParam);
+    } else {
+      url.searchParams.delete(URL_PARAM_TIMES);
+    }
+    if (labelParam && labelParam !== DEFAULT_LABEL) {
+      url.searchParams.set(URL_PARAM_LABEL, labelParam);
+    } else {
+      url.searchParams.delete(URL_PARAM_LABEL);
+    }
     window.history.replaceState(null, "", url.toString());
   }, [label, rows]);
 
