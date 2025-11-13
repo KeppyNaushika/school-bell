@@ -365,6 +365,7 @@ export default function Home() {
         <div className="display-next">
           <div className="next-time">
             <Bell aria-hidden size={20} className="bell-icon" />
+            <div className="w-8"></div>
             <span>{nextBell ? nextBell.time : "--:--"}</span>
           </div>
         </div>
