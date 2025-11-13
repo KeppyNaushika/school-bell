@@ -61,15 +61,56 @@ const formatTime = (date: Date, withSeconds = true) =>
     timeZone: "Asia/Tokyo",
   });
 
-const sanitizedBasePath =
+const URL_PARAM_KEY = "schedule";
+
+const getBasePath = () =>
   process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? "";
-const audioSourcePath = `/${[
-  sanitizedBasePath,
-  "audio",
-  "sei_ge_chaimu03.mp3",
-]
-  .filter(Boolean)
-  .join("/")}`;
+
+const buildAudioSourcePath = () => {
+  const segments = [getBasePath(), "audio", "sei_ge_chaimu03.mp3"].filter(
+    Boolean,
+  );
+  return `/${segments.join("/")}`;
+};
+
+const audioSourcePath = buildAudioSourcePath();
+
+const encodeScheduleParam = (label: string, rows: BellRow[]) => {
+  if (typeof window === "undefined" || typeof window.btoa !== "function") {
+    return null;
+  }
+  try {
+    const payload = {
+      label: label?.trim() || DEFAULT_LABEL,
+      rows: rows.map((row) => row.time),
+    };
+    return window.btoa(encodeURIComponent(JSON.stringify(payload)));
+  } catch {
+    return null;
+  }
+};
+
+const decodeScheduleParam = (value: string) => {
+  if (typeof window === "undefined" || typeof window.atob !== "function") {
+    return null;
+  }
+  try {
+    const json = decodeURIComponent(window.atob(value));
+    const parsed = JSON.parse(json) as {
+      label?: string;
+      rows?: string[];
+    };
+    const sanitizedRows = Array.isArray(parsed.rows)
+      ? parsed.rows.filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+      : [];
+    return {
+      label: parsed.label?.trim() || DEFAULT_LABEL,
+      rows: sanitizedRows,
+    };
+  } catch {
+    return null;
+  }
+};
 
 export default function Home() {
   const [panel, setPanel] = useState<"settings" | "guide" | null>(null);
@@ -80,6 +121,8 @@ export default function Home() {
   const [importError, setImportError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const statusTimer = useRef<number | null>(null);
+  const hasLoadedFromQuery = useRef(false);
+  const latestScheduleParam = useRef<string | null>(null);
 
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => a.time.localeCompare(b.time)),
@@ -110,8 +153,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const paramValue = params.get(URL_PARAM_KEY);
+    if (!paramValue) return;
+    const decoded = decodeScheduleParam(paramValue);
+    if (!decoded) return;
+    hasLoadedFromQuery.current = true;
+    latestScheduleParam.current = paramValue;
+    if (decoded.rows.length) {
+      setRows(createRows(decoded.rows));
+    }
+    setLabel(decoded.label);
+  }, []);
+
+  useEffect(() => {
     const fromStorage = window.localStorage.getItem(STORAGE_KEY);
-    if (!fromStorage) return;
+    if (!fromStorage || hasLoadedFromQuery.current) return;
     try {
       const parsed: StoredPayload = JSON.parse(fromStorage);
       const nextLabel = parsed.label?.trim() || DEFAULT_LABEL;
@@ -141,6 +199,17 @@ export default function Home() {
     } catch {
       // ignore quota errors
     }
+  }, [label, rows]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const encoded = encodeScheduleParam(label, rows);
+    if (!encoded) return;
+    if (latestScheduleParam.current === encoded) return;
+    latestScheduleParam.current = encoded;
+    const url = new URL(window.location.href);
+    url.searchParams.set(URL_PARAM_KEY, encoded);
+    window.history.replaceState(null, "", url.toString());
   }, [label, rows]);
 
   useEffect(() => {
