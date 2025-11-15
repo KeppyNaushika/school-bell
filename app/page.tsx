@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 declare global {
   interface Window {
@@ -34,10 +35,12 @@ type BellRow = {
 type StoredPayload = {
   label: string;
   rows: { time: string }[];
+  showSeconds?: boolean;
 };
 
 const STORAGE_KEY = "school-bell-settings@v1";
 const DEFAULT_LABEL = "標準設定";
+const DEFAULT_SHOW_SECONDS = true;
 const DEFAULT_TIMES = [
   "08:15",
 ];
@@ -105,11 +108,39 @@ const buildTimesParam = (rows: BellRow[]) =>
     .map(toParamTime)
     .join("-");
 
+const primaryButtonClass =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35";
+const ghostButtonClass =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-500/20 px-5 py-2.5 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-slate-500/30";
+const iconButtonClass =
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 text-slate-100 transition hover:bg-slate-800 hover:-translate-y-0.5";
+const dangerIconButtonClass =
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-rose-500/20 text-rose-100 transition hover:bg-rose-500/30 hover:-translate-y-0.5";
+const floatingButtonClass =
+  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 p-0 text-slate-100 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800";
+const fileLabelClass =
+  "relative inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35";
+const inputClass =
+  "w-full appearance-none rounded-xl border border-slate-500/40 bg-slate-900/60 px-4 py-3 text-base text-slate-50 outline-none transition placeholder:text-slate-400 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-400/30";
+const settingsBlockClass =
+  "space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-xl";
+const readStoredPayload = (): StoredPayload | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredPayload;
+  } catch {
+    return null;
+  }
+};
+
 export default function Home() {
   const [panel, setPanel] = useState<"settings" | "guide" | "copyright" | null>(null);
   const [label, setLabel] = useState(DEFAULT_LABEL);
   const [rows, setRows] = useState<BellRow[]>(() => createRows(DEFAULT_TIMES));
-  const [now, setNow] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
+  const [showSeconds, setShowSeconds] = useState(DEFAULT_SHOW_SECONDS);
   const [statusMessage, setStatusMessage] = useState("");
   const [importError, setImportError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -125,6 +156,7 @@ export default function Home() {
 
   const nextBell = useMemo(() => {
     if (!sortedRows.length) return null;
+    if (!now) return sortedRows[0];
     const minutesNow =
       now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
     return (
@@ -157,6 +189,12 @@ export default function Home() {
       setRows(createRows(parsedTimes));
     }
     setLabel(labelValue);
+    const stored = readStoredPayload();
+    const persistedSeconds =
+      typeof stored?.showSeconds === "boolean"
+        ? stored.showSeconds
+        : DEFAULT_SHOW_SECONDS;
+    setShowSeconds(persistedSeconds);
     hasLoadedFromQuery.current = true;
     lastSyncedTimes.current = timesValue;
     lastSyncedLabel.current = labelValue;
@@ -166,6 +204,7 @@ export default function Home() {
         JSON.stringify({
           label: labelValue,
           rows: parsedTimes.map((time) => ({ time })),
+          showSeconds: persistedSeconds,
         }),
       );
     } catch {
@@ -174,10 +213,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const fromStorage = window.localStorage.getItem(STORAGE_KEY);
-    if (!fromStorage || hasLoadedFromQuery.current) return;
+    const parsed = readStoredPayload();
+    if (!parsed) return;
+    if (typeof parsed.showSeconds === "boolean") {
+      setShowSeconds(parsed.showSeconds);
+    }
+    if (hasLoadedFromQuery.current) return;
     try {
-      const parsed: StoredPayload = JSON.parse(fromStorage);
       const nextLabel = parsed.label?.trim() || DEFAULT_LABEL;
       const nextRows = Array.isArray(parsed.rows)
         ? parsed.rows
@@ -200,12 +242,13 @@ export default function Home() {
         JSON.stringify({
           label,
           rows: rows.map((row) => ({ time: row.time })),
+          showSeconds,
         }),
       );
     } catch {
       // ignore quota errors
     }
-  }, [label, rows]);
+  }, [label, rows, showSeconds]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -231,12 +274,14 @@ export default function Home() {
   }, [label, rows]);
 
   useEffect(() => {
+    setNow(new Date());
     const tick = () => setNow(new Date());
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
+    if (!now) return;
     const daySignature = now.toLocaleDateString("ja-JP");
     if (!window.__bellDayTracker) {
       window.__bellDayTracker = {
@@ -289,6 +334,7 @@ export default function Home() {
   const handleReset = () => {
     setRows(createRows(DEFAULT_TIMES));
     setLabel(DEFAULT_LABEL);
+    setShowSeconds(DEFAULT_SHOW_SECONDS);
     handleStatus("初期の時間割に戻しました");
   };
 
@@ -300,6 +346,7 @@ export default function Home() {
     const payload: StoredPayload = {
       label,
       rows: sortedRows.map((row) => ({ time: row.time })),
+      showSeconds,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -329,8 +376,13 @@ export default function Home() {
         throw new Error("有効なチャイム時刻がありません");
       }
       const nextLabel = parsed.label?.trim() || DEFAULT_LABEL;
+      const nextShowSeconds =
+        typeof parsed.showSeconds === "boolean"
+          ? parsed.showSeconds
+          : DEFAULT_SHOW_SECONDS;
       setRows(createRows(sanitizedTimes));
       setLabel(nextLabel);
+      setShowSeconds(nextShowSeconds);
       handleStatus(`${file.name} を読み込みました`);
       setImportError("");
     } catch (error) {
@@ -350,38 +402,68 @@ export default function Home() {
   }, [handleStatus]);
 
   return (
-    <main className="app-shell">
+    <main className="relative flex min-h-screen w-full flex-col items-center justify-center gap-8 overflow-hidden px-4 py-10">
       <audio ref={audioRef} src={audioSourcePath} preload="auto" />
-      <div className="floating-buttons">
-        <button aria-label="設定を開く" onClick={() => setPanel("settings")}>
+      <div className="absolute right-6 top-6 flex gap-3">
+        <button
+          className={floatingButtonClass}
+          aria-label="設定を開く"
+          onClick={() => setPanel("settings")}
+        >
           <Settings aria-hidden size={18} />
         </button>
-        <button aria-label="ガイドを開く" onClick={() => setPanel("guide")}>
+        <button
+          className={floatingButtonClass}
+          aria-label="ガイドを開く"
+          onClick={() => setPanel("guide")}
+        >
           <HelpCircle aria-hidden size={18} />
         </button>
-        <button aria-label="著作権情報を開く" onClick={() => setPanel("copyright")}>
+        <button
+          className={floatingButtonClass}
+          aria-label="著作権情報を開く"
+          onClick={() => setPanel("copyright")}
+        >
           <Copyright aria-hidden size={18} />
         </button>
       </div>
 
-      <section className="display-stage" aria-live="polite">
-        <p className="display-now">
-          {(() => {
-            const time = formatTime(now);
-            const parts = time.split(":");
-            return (
-              <>
-                {parts[0]}
-                <span className="-mx-[0.3em]">：</span>
-                {parts[1]}
-                <span className="-mx-[0.3em]">：</span>
-                {parts[2]}
-              </>
-            );
-          })()}
+      <section
+        className="flex flex-col items-center gap-[clamp(1rem,5vw,4rem)] text-center"
+        aria-live="polite"
+      >
+        <p className="whitespace-nowrap text-[clamp(5rem,20vw,18rem)] font-bold leading-none text-white [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
+          {now ? (
+            (() => {
+              const time = formatTime(now, showSeconds);
+              const parts = time.split(":");
+              return (
+                <>
+                  {parts[0]}
+                  <span className="-mx-[0.3em]">：</span>
+                  {parts[1]}
+                  {showSeconds && parts[2] ? (
+                    <>
+                      <span className="-mx-[0.3em]">：</span>
+                      {parts[2]}
+                    </>
+                  ) : null}
+                </>
+              );
+            })()
+          ) : (
+            <>
+              --<span className="-mx-[0.3em]">：</span>--
+              {showSeconds ? (
+                <>
+                  <span className="-mx-[0.3em]">：</span>--
+                </>
+              ) : null}
+            </>
+          )}
         </p>
-        <div className="next-time">
-          <Bell aria-hidden size={48} className="bell-icon" />
+        <div className="inline-flex items-center gap-6 text-[clamp(2rem,7vw,5rem)] text-white/70 [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
+          <Bell aria-hidden size={48} className="text-white" />
           <span>
             {nextBell ? (
               <>
@@ -398,17 +480,17 @@ export default function Home() {
 
       {panel && (
         <div
-          className="panel-overlay"
+          className="fixed inset-0 flex justify-end bg-slate-950/70 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           onClick={() => setPanel(null)}
         >
           <aside
-            className="panel-drawer"
+            className="flex h-full w-full max-w-xl flex-col gap-6 border-l border-white/10 bg-slate-950/90 p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="panel-header">
-              <div className="panel-title">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-lg font-semibold">
                 {panel === "settings" ? (
                   <>
                     <Settings aria-hidden size={20} />
@@ -427,14 +509,14 @@ export default function Home() {
                 )}
               </div>
               <button
-                className="icon-button"
+                className={iconButtonClass}
                 aria-label="閉じる"
                 onClick={() => setPanel(null)}
               >
                 <X aria-hidden size={20} />
               </button>
             </div>
-            <div className="panel-body">
+            <div className="overflow-y-auto pr-1">
               {panel === "settings" ? (
                 <SettingsContent
                   label={label}
@@ -449,6 +531,8 @@ export default function Home() {
                   onReset={handleReset}
                   onTestChime={handleTestChime}
                   onCopyLink={handleCopyLink}
+                  showSeconds={showSeconds}
+                  onShowSecondsChange={setShowSeconds}
                 />
               ) : panel === "guide" ? (
                 <GuideContent />
@@ -460,7 +544,11 @@ export default function Home() {
         </div>
       )}
 
-      {statusMessage && <div className="toast">{statusMessage}</div>}
+      {statusMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-sky-600/90 px-6 py-3 text-sm font-semibold text-cyan-50 shadow-2xl">
+          {statusMessage}
+        </div>
+      )}
     </main>
   );
 }
@@ -478,6 +566,8 @@ type SettingsContentProps = {
   onReset: () => void;
   onTestChime: () => void;
   onCopyLink: () => void;
+  showSeconds: boolean;
+  onShowSecondsChange: (value: boolean) => void;
 };
 
 function SettingsContent({
@@ -493,6 +583,8 @@ function SettingsContent({
   onReset,
   onTestChime,
   onCopyLink,
+  showSeconds,
+  onShowSecondsChange,
 }: SettingsContentProps) {
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
 
@@ -532,10 +624,11 @@ function SettingsContent({
   };
 
   return (
-    <div className="settings-stack">
-      <section className="settings-block">
-        <p className="block-title">時間割名</p>
+    <div className="flex flex-col gap-6">
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">時間割名</p>
         <input
+          className={inputClass}
           type="text"
           value={label}
           onChange={(event) => onLabelChange(event.target.value)}
@@ -543,21 +636,39 @@ function SettingsContent({
         />
       </section>
 
-      <section className="settings-block">
-        <p className="block-title">ダウンロードと読み込み</p>
-        <div className="action-row">
-          <button className="ghost-button" onClick={onCopyLink}>
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">表示設定</p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <label htmlFor="show-seconds" className="flex flex-col gap-1 font-semibold text-slate-100">
+            秒を表示
+            <span className="text-sm font-normal text-slate-400">
+              現在時刻に秒を表示するかを切り替えます。
+            </span>
+          </label>
+          <Switch
+            id="show-seconds"
+            checked={showSeconds}
+            onCheckedChange={onShowSecondsChange}
+          />
+        </div>
+      </section>
+
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">ダウンロードと読み込み</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={ghostButtonClass} onClick={onCopyLink}>
             <Link2 aria-hidden size={18} />
             リンクをコピー
           </button>
-          <button onClick={onExport}>
+          <button className={primaryButtonClass} onClick={onExport}>
             <Download aria-hidden size={18} />
             時間割データをダウンロード
           </button>
-          <label className="file-label">
+          <label className={fileLabelClass}>
             <Upload aria-hidden size={18} />
             時間割データを読み込む
             <input
+              className="absolute inset-0 cursor-pointer opacity-0"
               type="file"
               accept="application/json"
               onChange={(event) => {
@@ -567,34 +678,39 @@ function SettingsContent({
               }}
             />
           </label>
-          <button className="ghost-button" onClick={onReset}>
+          <button className={ghostButtonClass} onClick={onReset}>
             <RotateCcw aria-hidden size={18} />
             初期データに戻す
           </button>
         </div>
-        {importError && <p className="error-message">{importError}</p>}
+        {importError && (
+          <p className="text-sm font-semibold text-rose-200">{importError}</p>
+        )}
       </section>
 
-      <section className="settings-block">
-        <p className="block-title">ベルの音を確認</p>
-        <p className="block-note">
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">ベルの音を確認</p>
+        <p className="text-sm text-slate-300">
           ブラウザーが音を止めていると自動再生できません。最初に一度だけテストを押してください。
         </p>
-        <button onClick={onTestChime}>
+        <button className={primaryButtonClass} onClick={onTestChime}>
           <Play aria-hidden size={18} />
           チャイムをテスト再生
         </button>
       </section>
 
-      <section className="settings-block">
-        <div className="block-head">
-          <p className="block-title">ベルの時間</p>
+      <section className={settingsBlockClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-base font-semibold">ベルの時間</p>
         </div>
-        <ol className="time-list">
+        <ol className="space-y-3">
           {rows.map((row, index) => (
-            <li key={row.id} className="time-item">
-              <span className="time-index">{index + 1}</span>
+            <li key={row.id} className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20 font-semibold text-sky-100">
+                {index + 1}
+              </span>
               <input
+                className={inputClass}
                 type="time"
                 value={row.time}
                 aria-label={`チャイム時刻 ${index + 1}`}
@@ -609,7 +725,7 @@ function SettingsContent({
                 onKeyDown={(event) => handleTimeKeyDown(event, index, row.id)}
               />
               <button
-                className="icon-button danger"
+                className={dangerIconButtonClass}
                 aria-label={`${row.time} を削除`}
                 onClick={() => onRemoveRow(row.id)}
               >
@@ -618,8 +734,8 @@ function SettingsContent({
             </li>
           ))}
         </ol>
-        <div className="block-footer">
-          <button className="ghost-button" onClick={() => onAddRowAfter()}>
+        <div className="flex justify-end">
+          <button className={ghostButtonClass} onClick={() => onAddRowAfter()}>
             <Plus aria-hidden size={16} />
             チャイムを追加
           </button>
@@ -631,10 +747,10 @@ function SettingsContent({
 
 function CopyrightContent() {
   return (
-    <div className="guide-block">
-      <article>
-        <h3>音声素材について</h3>
-        <p>
+    <div className="space-y-4">
+      <article className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg">
+        <h3 className="text-lg font-semibold">音声素材について</h3>
+        <p className="leading-relaxed text-slate-300">
           このアプリケーションで使用されているチャイム音は、
           <a
             href="https://www.nhk.or.jp/archives/creative/"
@@ -647,9 +763,9 @@ function CopyrightContent() {
           から提供されています。
         </p>
       </article>
-      <article>
-        <h3>利用規約</h3>
-        <p>
+      <article className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg">
+        <h3 className="text-lg font-semibold">利用規約</h3>
+        <p className="leading-relaxed text-slate-300">
           音声素材の利用については、
           <a
             href="https://www.nhk.or.jp/archives/creative/rule.html"
@@ -690,14 +806,17 @@ function GuideContent() {
     },
   ];
   return (
-    <div className="guide-block">
+    <div className="space-y-4">
       {steps.map((step) => (
-        <article key={step.title}>
-          <h3>{step.title}</h3>
-          <p>{step.body}</p>
+        <article
+          key={step.title}
+          className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg"
+        >
+          <h3 className="text-lg font-semibold">{step.title}</h3>
+          <p className="leading-relaxed text-slate-300">{step.body}</p>
         </article>
       ))}
-      <p className="text-xs opacity-40 text-center mt-4">
+      <p className="mt-4 text-center text-xs text-slate-400">
         音声：
         <a
           href="https://www.nhk.or.jp/archives/creative/rule.html"
