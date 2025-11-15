@@ -1,7 +1,8 @@
-"use client";
+"use client"
 
 import {
   Bell,
+  BellRing,
   Copyright,
   Download,
   HelpCircle,
@@ -13,191 +14,271 @@ import {
   Trash2,
   Upload,
   X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Switch } from "@/components/ui/switch";
+} from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Switch } from "@/components/ui/switch"
 
 declare global {
   interface Window {
     __bellDayTracker?: {
-      day: string;
-      times: Set<string>;
-    };
-    webkitAudioContext?: typeof AudioContext;
+      day: string
+      times: Set<string>
+    }
+    webkitAudioContext?: typeof AudioContext
   }
 }
 
 type BellRow = {
-  id: string;
-  time: string;
-};
+  id: string
+  time: string
+}
 
 type StoredPayload = {
-  label: string;
-  rows: { time: string }[];
-  showSeconds?: boolean;
-};
+  label: string
+  rows: { time: string }[]
+  showSeconds?: boolean
+  use24Hour?: boolean
+}
 
-const STORAGE_KEY = "school-bell-settings@v1";
-const DEFAULT_LABEL = "標準設定";
-const DEFAULT_SHOW_SECONDS = true;
-const DEFAULT_TIMES = [
-  "08:15",
-];
+const STORAGE_KEY = "school-bell-settings@v1"
+const DEFAULT_LABEL = "標準設定"
+const DEFAULT_SHOW_SECONDS = true
+const DEFAULT_24_HOUR = true
+const DEFAULT_TIMES = ["08:15"]
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
+    : Math.random().toString(36).slice(2)
 
-const createRows = (times: string[]) => times.map((time) => ({ id: newId(), time }));
+const createRows = (times: string[]) =>
+  times.map((time) => ({ id: newId(), time }))
 
 const toMinutes = (time: string) => {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-};
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + m
+}
 
-const formatTime = (date: Date, withSeconds = true) =>
-  date.toLocaleTimeString("ja-JP", {
-    hour12: false,
+const formatTime = (date: Date, withSeconds = true, use24Hour = true) => {
+  const formatter = new Intl.DateTimeFormat("ja-JP", {
+    hour12: !use24Hour,
     hour: "2-digit",
     minute: "2-digit",
     second: withSeconds ? "2-digit" : undefined,
     timeZone: "Asia/Tokyo",
-  });
+  })
+  const parts = formatter
+    .formatToParts(date)
+    .filter((part) => part.type !== "dayPeriod")
+    .map((part) => part.value)
+  return parts.join("").trim()
+}
 
-const URL_PARAM_TIMES = "time";
-const URL_PARAM_LABEL = "label";
+const formatRowTime = (time: string, use24Hour: boolean) => {
+  if (use24Hour) {
+    return time
+  }
+  const [hh, mm] = time.split(":").map(Number)
+  const hour12 = hh % 12 || 12
+  return `${hour12.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`
+}
+
+const URL_PARAM_TIMES = "time"
+const URL_PARAM_LABEL = "label"
 
 const getBasePath = () =>
-  process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? "";
+  process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "") ?? ""
 
 const buildAudioSourcePath = () => {
-  const segments = [getBasePath(), "audio", "chime.wav"].filter(
-    Boolean,
-  );
-  return `/${segments.join("/")}`;
-};
+  const segments = [getBasePath(), "audio", "chime.wav"].filter(Boolean)
+  return `/${segments.join("/")}`
+}
 
-const audioSourcePath = buildAudioSourcePath();
+const audioSourcePath = buildAudioSourcePath()
 
-const TIME_HHMM = /^\d{2}:\d{2}$/;
-const TIME_PARAM = /^\d{4}$/;
+const TIME_HHMM = /^\d{2}:\d{2}$/
+const TIME_PARAM = /^\d{4}$/
 
-const toParamTime = (time: string) => time.replace(":", "");
+const toParamTime = (time: string) => time.replace(":", "")
 
 const fromParamTime = (value: string) => {
-  if (!TIME_PARAM.test(value)) return null;
-  const hh = value.slice(0, 2);
-  const mm = value.slice(2);
-  if (Number(hh) > 23 || Number(mm) > 59) return null;
-  return `${hh}:${mm}`;
-};
+  if (!TIME_PARAM.test(value)) return null
+  const hh = value.slice(0, 2)
+  const mm = value.slice(2)
+  if (Number(hh) > 23 || Number(mm) > 59) return null
+  return `${hh}:${mm}`
+}
 
 const parseTimesParam = (value: string) =>
   value
     .split("-")
     .map((segment) => fromParamTime(segment.trim()))
     .filter((time): time is string => Boolean(time))
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b))
+
+type PanelName = "settings" | "alarm" | "guide" | "copyright"
 
 const buildTimesParam = (rows: BellRow[]) =>
   rows
     .map((row) => row.time)
     .filter((time) => TIME_HHMM.test(time))
     .map(toParamTime)
-    .join("-");
+    .join("-")
 
 const primaryButtonClass =
-  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35";
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35"
 const ghostButtonClass =
-  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-500/20 px-5 py-2.5 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-slate-500/30";
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-500/20 px-5 py-2.5 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-slate-500/30"
 const iconButtonClass =
-  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 text-slate-100 transition hover:bg-slate-800 hover:-translate-y-0.5";
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 text-slate-100 transition hover:bg-slate-800 hover:-translate-y-0.5"
 const dangerIconButtonClass =
-  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-rose-500/20 text-rose-100 transition hover:bg-rose-500/30 hover:-translate-y-0.5";
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-rose-500/20 text-rose-100 transition hover:bg-rose-500/30 hover:-translate-y-0.5"
 const floatingButtonClass =
-  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 p-0 text-slate-100 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800";
+  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 p-0 text-slate-100 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800"
 const fileLabelClass =
-  "relative inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35";
+  "relative inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35"
 const inputClass =
-  "w-full appearance-none rounded-xl border border-slate-500/40 bg-slate-900/60 px-4 py-3 text-base text-slate-50 outline-none transition placeholder:text-slate-400 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-400/30";
+  "w-full appearance-none rounded-xl border border-slate-500/40 bg-slate-900/60 px-4 py-3 text-base text-slate-50 outline-none transition placeholder:text-slate-400 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-400/30"
 const settingsBlockClass =
-  "space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-xl";
+  "space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-xl"
 const readStoredPayload = (): StoredPayload | null => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") return null
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredPayload;
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as StoredPayload
   } catch {
-    return null;
+    return null
   }
-};
+}
 
 export default function Home() {
-  const [panel, setPanel] = useState<"settings" | "guide" | "copyright" | null>(null);
-  const [label, setLabel] = useState(DEFAULT_LABEL);
-  const [rows, setRows] = useState<BellRow[]>(() => createRows(DEFAULT_TIMES));
-  const [now, setNow] = useState<Date | null>(null);
-  const [showSeconds, setShowSeconds] = useState(DEFAULT_SHOW_SECONDS);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [importError, setImportError] = useState("");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const statusTimer = useRef<number | null>(null);
-  const hasLoadedFromQuery = useRef(false);
-  const lastSyncedTimes = useRef<string | null>(null);
-  const lastSyncedLabel = useRef<string | null>(null);
+  const [panel, setPanel] = useState<PanelName | null>(null)
+  const [isPanelVisible, setIsPanelVisible] = useState(false)
+  const [label, setLabel] = useState(DEFAULT_LABEL)
+  const [rows, setRows] = useState<BellRow[]>(() => createRows(DEFAULT_TIMES))
+  const [now, setNow] = useState<Date | null>(null)
+  const [showSeconds, setShowSeconds] = useState(DEFAULT_SHOW_SECONDS)
+  const [use24Hour, setUse24Hour] = useState(DEFAULT_24_HOUR)
+  const [statusMessage, setStatusMessage] = useState("")
+  const [importError, setImportError] = useState("")
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const statusTimer = useRef<number | null>(null)
+  const hasLoadedFromQuery = useRef(false)
+  const lastSyncedTimes = useRef<string | null>(null)
+  const lastSyncedLabel = useRef<string | null>(null)
+  const controlsTimer = useRef<number | null>(null)
+  const panelHideTimer = useRef<number | null>(null)
 
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => a.time.localeCompare(b.time)),
     [rows],
-  );
+  )
 
   const nextBell = useMemo(() => {
-    if (!sortedRows.length) return null;
-    if (!now) return sortedRows[0];
+    if (!sortedRows.length) return null
+    if (!now) return sortedRows[0]
     const minutesNow =
-      now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
     return (
       sortedRows.find((row) => toMinutes(row.time) >= minutesNow - 1 / 60) ??
       sortedRows[0]
-    );
-  }, [now, sortedRows]);
+    )
+  }, [now, sortedRows])
 
   const handleStatus = useCallback((message: string) => {
-    setStatusMessage(message);
+    setStatusMessage(message)
     if (statusTimer.current) {
-      window.clearTimeout(statusTimer.current);
+      window.clearTimeout(statusTimer.current)
     }
-    statusTimer.current = window.setTimeout(() => setStatusMessage(""), 4000);
-  }, []);
+    statusTimer.current = window.setTimeout(() => setStatusMessage(""), 4000)
+  }, [])
 
   const handleTestChime = useCallback(async () => {
-    setImportError("");
-    await playChime(audioRef.current);
-  }, []);
+    setImportError("")
+    await playChime(audioRef.current)
+  }, [])
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true)
+    if (controlsTimer.current) {
+      window.clearTimeout(controlsTimer.current)
+    }
+    controlsTimer.current = window.setTimeout(
+      () => setControlsVisible(false),
+      5000,
+    )
+  }, [])
+
+  const openPanel = useCallback((nextPanel: PanelName) => {
+    if (panelHideTimer.current) {
+      window.clearTimeout(panelHideTimer.current)
+      panelHideTimer.current = null
+    }
+    setPanel(nextPanel)
+    requestAnimationFrame(() => setIsPanelVisible(true))
+  }, [])
+
+  const closePanel = useCallback(() => {
+    setIsPanelVisible(false)
+    if (panelHideTimer.current) {
+      window.clearTimeout(panelHideTimer.current)
+    }
+    panelHideTimer.current = window.setTimeout(() => {
+      setPanel(null)
+      panelHideTimer.current = null
+    }, 300)
+  }, [])
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const timesValue = params.get(URL_PARAM_TIMES);
-    if (!timesValue) return;
-    const parsedTimes = parseTimesParam(timesValue);
-    const labelValue = params.get(URL_PARAM_LABEL)?.trim() || DEFAULT_LABEL;
-    if (parsedTimes.length) {
-      setRows(createRows(parsedTimes));
+    if (typeof window === "undefined") return
+    showControls()
+    const handlePointer = () => showControls()
+    window.addEventListener("pointermove", handlePointer)
+    window.addEventListener("click", handlePointer)
+    return () => {
+      window.removeEventListener("pointermove", handlePointer)
+      window.removeEventListener("click", handlePointer)
+      if (controlsTimer.current) {
+        window.clearTimeout(controlsTimer.current)
+      }
     }
-    setLabel(labelValue);
-    const stored = readStoredPayload();
+  }, [showControls])
+
+  useEffect(() => {
+    return () => {
+      if (panelHideTimer.current) {
+        window.clearTimeout(panelHideTimer.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const timesValue = params.get(URL_PARAM_TIMES)
+    if (!timesValue) return
+    const parsedTimes = parseTimesParam(timesValue)
+    const labelValue = params.get(URL_PARAM_LABEL)?.trim() || DEFAULT_LABEL
+    if (parsedTimes.length) {
+      setRows(createRows(parsedTimes))
+    }
+    setLabel(labelValue)
+    const stored = readStoredPayload()
     const persistedSeconds =
       typeof stored?.showSeconds === "boolean"
         ? stored.showSeconds
-        : DEFAULT_SHOW_SECONDS;
-    setShowSeconds(persistedSeconds);
-    hasLoadedFromQuery.current = true;
-    lastSyncedTimes.current = timesValue;
-    lastSyncedLabel.current = labelValue;
+        : DEFAULT_SHOW_SECONDS
+    const persistedFormat =
+      typeof stored?.use24Hour === "boolean"
+        ? stored.use24Hour
+        : DEFAULT_24_HOUR
+    setShowSeconds(persistedSeconds)
+    setUse24Hour(persistedFormat)
+    hasLoadedFromQuery.current = true
+    lastSyncedTimes.current = timesValue
+    lastSyncedLabel.current = labelValue
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
@@ -205,35 +286,39 @@ export default function Home() {
           label: labelValue,
           rows: parsedTimes.map((time) => ({ time })),
           showSeconds: persistedSeconds,
+          use24Hour: persistedFormat,
         }),
-      );
+      )
     } catch {
       // ignore
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    const parsed = readStoredPayload();
-    if (!parsed) return;
+    const parsed = readStoredPayload()
+    if (!parsed) return
     if (typeof parsed.showSeconds === "boolean") {
-      setShowSeconds(parsed.showSeconds);
+      setShowSeconds(parsed.showSeconds)
     }
-    if (hasLoadedFromQuery.current) return;
+    if (typeof parsed.use24Hour === "boolean") {
+      setUse24Hour(parsed.use24Hour)
+    }
+    if (hasLoadedFromQuery.current) return
     try {
-      const nextLabel = parsed.label?.trim() || DEFAULT_LABEL;
+      const nextLabel = parsed.label?.trim() || DEFAULT_LABEL
       const nextRows = Array.isArray(parsed.rows)
         ? parsed.rows
             .map((row) => row.time)
             .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
-        : [];
+        : []
       if (nextRows.length) {
-        setRows(createRows(nextRows));
+        setRows(createRows(nextRows))
       }
-      setLabel(nextLabel);
+      setLabel(nextLabel)
     } catch {
       // ignore broken payloads
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
     try {
@@ -243,186 +328,210 @@ export default function Home() {
           label,
           rows: rows.map((row) => ({ time: row.time })),
           showSeconds,
+          use24Hour,
         }),
-      );
+      )
     } catch {
       // ignore quota errors
     }
-  }, [label, rows, showSeconds]);
+  }, [label, rows, showSeconds, use24Hour])
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const timesParam = buildTimesParam(rows);
-    const labelParam = label?.trim() || DEFAULT_LABEL;
-    if (timesParam === lastSyncedTimes.current && labelParam === lastSyncedLabel.current) {
-      return;
+    if (typeof window === "undefined") return
+    const timesParam = buildTimesParam(rows)
+    const labelParam = label?.trim() || DEFAULT_LABEL
+    if (
+      timesParam === lastSyncedTimes.current &&
+      labelParam === lastSyncedLabel.current
+    ) {
+      return
     }
-    lastSyncedTimes.current = timesParam;
-    lastSyncedLabel.current = labelParam;
-    const url = new URL(window.location.href);
+    lastSyncedTimes.current = timesParam
+    lastSyncedLabel.current = labelParam
+    const url = new URL(window.location.href)
     if (timesParam) {
-      url.searchParams.set(URL_PARAM_TIMES, timesParam);
+      url.searchParams.set(URL_PARAM_TIMES, timesParam)
     } else {
-      url.searchParams.delete(URL_PARAM_TIMES);
+      url.searchParams.delete(URL_PARAM_TIMES)
     }
     if (labelParam && labelParam !== DEFAULT_LABEL) {
-      url.searchParams.set(URL_PARAM_LABEL, labelParam);
+      url.searchParams.set(URL_PARAM_LABEL, labelParam)
     } else {
-      url.searchParams.delete(URL_PARAM_LABEL);
+      url.searchParams.delete(URL_PARAM_LABEL)
     }
-    window.history.replaceState(null, "", url.toString());
-  }, [label, rows]);
+    window.history.replaceState(null, "", url.toString())
+  }, [label, rows])
 
   useEffect(() => {
-    setNow(new Date());
-    const tick = () => setNow(new Date());
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
+    setNow(new Date())
+    const tick = () => setNow(new Date())
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
-    if (!now) return;
-    const daySignature = now.toLocaleDateString("ja-JP");
+    if (!now) return
+    const daySignature = now.toLocaleDateString("ja-JP")
     if (!window.__bellDayTracker) {
       window.__bellDayTracker = {
         day: daySignature,
         times: new Set<string>(),
-      };
+      }
     }
-    const tracker = window.__bellDayTracker!;
+    const tracker = window.__bellDayTracker!
     if (tracker.day !== daySignature) {
-      tracker.day = daySignature;
-      tracker.times = new Set();
+      tracker.day = daySignature
+      tracker.times = new Set()
     }
-    const hhmm = formatTime(now, false);
-    const shouldRing = sortedRows.some((row) => row.time === hhmm);
+    const hhmm = formatTime(now, false, true)
+    const shouldRing = sortedRows.some((row) => row.time === hhmm)
     if (shouldRing && !tracker.times.has(hhmm)) {
-      tracker.times.add(hhmm);
-      playChime(audioRef.current);
-      handleStatus(`チャイムを再生しました（${hhmm}）`);
+      tracker.times.add(hhmm)
+      playChime(audioRef.current)
+      handleStatus(`チャイムを再生しました（${hhmm}）`)
     }
-  }, [handleStatus, now, sortedRows]);
+  }, [handleStatus, now, sortedRows])
 
   const handleTimeChange = (id: string, value: string) => {
-    if (!/^\d{2}:\d{2}$/.test(value)) return;
+    if (!/^\d{2}:\d{2}$/.test(value)) return
     setRows((prev) =>
       prev.map((row) => (row.id === id ? { ...row, time: value } : row)),
-    );
-  };
+    )
+  }
 
   const handleAddRowAfter = (afterId?: string) => {
-    const nextRow: BellRow = { id: newId(), time: "00:00" };
+    const nextRow: BellRow = { id: newId(), time: "00:00" }
     setRows((prev) => {
       if (!afterId) {
-        return [...prev, nextRow];
+        return [...prev, nextRow]
       }
-      const index = prev.findIndex((row) => row.id === afterId);
+      const index = prev.findIndex((row) => row.id === afterId)
       if (index === -1) {
-        return [...prev, nextRow];
+        return [...prev, nextRow]
       }
-      const copy = [...prev];
-      copy.splice(index + 1, 0, nextRow);
-      return copy;
-    });
-    return nextRow.id;
-  };
+      const copy = [...prev]
+      copy.splice(index + 1, 0, nextRow)
+      return copy
+    })
+    return nextRow.id
+  }
 
   const handleRemoveRow = (id: string) => {
-    setRows((prev) => prev.filter((row) => row.id !== id));
-  };
+    setRows((prev) => prev.filter((row) => row.id !== id))
+  }
 
   const handleReset = () => {
-    setRows(createRows(DEFAULT_TIMES));
-    setLabel(DEFAULT_LABEL);
-    setShowSeconds(DEFAULT_SHOW_SECONDS);
-    handleStatus("初期の時間割に戻しました");
-  };
+    setRows(createRows(DEFAULT_TIMES))
+    setLabel(DEFAULT_LABEL)
+    setShowSeconds(DEFAULT_SHOW_SECONDS)
+    setUse24Hour(DEFAULT_24_HOUR)
+    handleStatus("初期の時間割に戻しました")
+  }
 
   const handleExport = () => {
     if (!rows.length) {
-      handleStatus("書き出す時間がありません");
-      return;
+      handleStatus("書き出す時間がありません")
+      return
     }
     const payload: StoredPayload = {
       label,
       rows: sortedRows.map((row) => ({ time: row.time })),
       showSeconds,
-    };
+      use24Hour,
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
-    });
-    const userLabel = label.trim() || "設定";
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `時間割 - ${userLabel}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    handleStatus("JSONを書き出しました");
-  };
+    })
+    const userLabel = label.trim() || "設定"
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `時間割 - ${userLabel}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    handleStatus("JSONを書き出しました")
+  }
 
   const handleImport = async (file: File | null) => {
-    if (!file) return;
+    if (!file) return
     try {
-      const text = await file.text();
-      const parsed: StoredPayload = JSON.parse(text);
+      const text = await file.text()
+      const parsed: StoredPayload = JSON.parse(text)
       if (!Array.isArray(parsed.rows)) {
-        throw new Error("rows が見つかりません");
+        throw new Error("rows が見つかりません")
       }
       const sanitizedTimes = parsed.rows
         .map((row) => row.time)
-        .filter((time): time is string => /^\d{2}:\d{2}$/.test(time));
+        .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
       if (!sanitizedTimes.length) {
-        throw new Error("有効なチャイム時刻がありません");
+        throw new Error("有効なチャイム時刻がありません")
       }
-      const nextLabel = parsed.label?.trim() || DEFAULT_LABEL;
+      const nextLabel = parsed.label?.trim() || DEFAULT_LABEL
       const nextShowSeconds =
         typeof parsed.showSeconds === "boolean"
           ? parsed.showSeconds
-          : DEFAULT_SHOW_SECONDS;
-      setRows(createRows(sanitizedTimes));
-      setLabel(nextLabel);
-      setShowSeconds(nextShowSeconds);
-      handleStatus(`${file.name} を読み込みました`);
-      setImportError("");
+          : DEFAULT_SHOW_SECONDS
+      const nextUse24Hour =
+        typeof parsed.use24Hour === "boolean"
+          ? parsed.use24Hour
+          : DEFAULT_24_HOUR
+      setRows(createRows(sanitizedTimes))
+      setLabel(nextLabel)
+      setShowSeconds(nextShowSeconds)
+      setUse24Hour(nextUse24Hour)
+      handleStatus(`${file.name} を読み込みました`)
+      setImportError("")
     } catch (error) {
       setImportError(
         error instanceof Error ? error.message : "読み込みに失敗しました",
-      );
+      )
     }
-  };
+  }
 
   const handleCopyLink = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      handleStatus("共有リンクをコピーしました");
+      await navigator.clipboard.writeText(window.location.href)
+      handleStatus("共有リンクをコピーしました")
     } catch {
-      handleStatus("リンクをコピーできませんでした");
+      handleStatus("リンクをコピーできませんでした")
     }
-  }, [handleStatus]);
+  }, [handleStatus])
 
   return (
     <main className="relative flex min-h-screen w-full flex-col items-center justify-center gap-8 overflow-hidden px-4 py-10">
       <audio ref={audioRef} src={audioSourcePath} preload="auto" />
-      <div className="absolute right-6 top-6 flex gap-3">
+      <div
+        className={`absolute right-6 top-6 flex gap-3 transition-opacity duration-300 ${
+          controlsVisible
+            ? "opacity-100 pointer-events-auto"
+            : "pointer-events-none opacity-0"
+        }`}
+      >
         <button
           className={floatingButtonClass}
           aria-label="設定を開く"
-          onClick={() => setPanel("settings")}
+          onClick={() => openPanel("settings")}
         >
           <Settings aria-hidden size={18} />
         </button>
         <button
           className={floatingButtonClass}
+          aria-label="アラームを開く"
+          onClick={() => openPanel("alarm")}
+        >
+          <BellRing aria-hidden size={18} />
+        </button>
+        <button
+          className={floatingButtonClass}
           aria-label="ガイドを開く"
-          onClick={() => setPanel("guide")}
+          onClick={() => openPanel("guide")}
         >
           <HelpCircle aria-hidden size={18} />
         </button>
         <button
           className={floatingButtonClass}
           aria-label="著作権情報を開く"
-          onClick={() => setPanel("copyright")}
+          onClick={() => openPanel("copyright")}
         >
           <Copyright aria-hidden size={18} />
         </button>
@@ -435,8 +544,8 @@ export default function Home() {
         <p className="whitespace-nowrap text-[clamp(5rem,20vw,18rem)] font-bold leading-none text-white [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
           {now ? (
             (() => {
-              const time = formatTime(now, showSeconds);
-              const parts = time.split(":");
+              const time = formatTime(now, showSeconds, use24Hour)
+              const parts = time.split(":")
               return (
                 <>
                   {parts[0]}
@@ -449,7 +558,7 @@ export default function Home() {
                     </>
                   ) : null}
                 </>
-              );
+              )
             })()
           ) : (
             <>
@@ -462,17 +571,30 @@ export default function Home() {
             </>
           )}
         </p>
-        <div className="inline-flex items-center gap-6 text-[clamp(2rem,7vw,5rem)] text-white/70 [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
+        <div className="inline-flex items-center gap-4 text-[clamp(2rem,7vw,5rem)] text-white/70 [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
           <Bell aria-hidden size={48} className="text-white" />
-          <span>
+          {!use24Hour && nextBell ? (
+            <span className="text-[0.5em] font-semibold uppercase text-slate-300">
+              {Number(nextBell.time.split(":")[0]) < 12 ? "am" : "pm"}
+            </span>
+          ) : null}
+          <span className="flex items-center">
             {nextBell ? (
-              <>
-                {nextBell.time.split(":")[0]}
-                <span className="-mx-[0.3em]">：</span>
-                {nextBell.time.split(":")[1]}
-              </>
+              (() => {
+                const formattedNext = formatRowTime(nextBell.time, use24Hour)
+                const [nextHour, nextMinute] = formattedNext.split(":")
+                return (
+                  <>
+                    {nextHour}
+                    <span className="-mx-[0.3em]">：</span>
+                    {nextMinute}
+                  </>
+                )
+              })()
             ) : (
-              <>--<span className="-mx-[0.3em]">：</span>--</>
+              <>
+                --<span className="-mx-[0.3em]">：</span>--
+              </>
             )}
           </span>
         </div>
@@ -480,13 +602,17 @@ export default function Home() {
 
       {panel && (
         <div
-          className="fixed inset-0 flex justify-end bg-slate-950/70 backdrop-blur-md"
+          className={`fixed inset-0 flex justify-end bg-slate-950/70 backdrop-blur-md transition-opacity duration-300 ${
+            isPanelVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
           role="dialog"
           aria-modal="true"
-          onClick={() => setPanel(null)}
+          onClick={closePanel}
         >
           <aside
-            className="flex h-full w-full max-w-xl flex-col gap-6 border-l border-white/10 bg-slate-950/90 p-6 shadow-2xl"
+            className={`flex h-full w-full max-w-xl flex-col gap-6 border-l border-white/10 bg-slate-950/90 p-6 shadow-2xl transition-transform duration-300 ${
+              isPanelVisible ? "translate-x-0" : "translate-x-full"
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-4">
@@ -495,6 +621,11 @@ export default function Home() {
                   <>
                     <Settings aria-hidden size={20} />
                     <h2>設定</h2>
+                  </>
+                ) : panel === "alarm" ? (
+                  <>
+                    <BellRing aria-hidden size={20} />
+                    <h2>アラーム</h2>
                   </>
                 ) : panel === "guide" ? (
                   <>
@@ -511,7 +642,7 @@ export default function Home() {
               <button
                 className={iconButtonClass}
                 aria-label="閉じる"
-                onClick={() => setPanel(null)}
+                onClick={closePanel}
               >
                 <X aria-hidden size={20} />
               </button>
@@ -519,6 +650,14 @@ export default function Home() {
             <div className="overflow-y-auto pr-1">
               {panel === "settings" ? (
                 <SettingsContent
+                  showSeconds={showSeconds}
+                  onShowSecondsChange={setShowSeconds}
+                  use24Hour={use24Hour}
+                  onUse24HourChange={setUse24Hour}
+                  onTestChime={handleTestChime}
+                />
+              ) : panel === "alarm" ? (
+                <AlarmContent
                   label={label}
                   rows={rows}
                   importError={importError}
@@ -529,10 +668,7 @@ export default function Home() {
                   onExport={handleExport}
                   onImport={handleImport}
                   onReset={handleReset}
-                  onTestChime={handleTestChime}
                   onCopyLink={handleCopyLink}
-                  showSeconds={showSeconds}
-                  onShowSecondsChange={setShowSeconds}
                 />
               ) : panel === "guide" ? (
                 <GuideContent />
@@ -550,27 +686,91 @@ export default function Home() {
         </div>
       )}
     </main>
-  );
+  )
 }
 
 type SettingsContentProps = {
-  label: string;
-  rows: BellRow[];
-  importError: string;
-  onLabelChange: (value: string) => void;
-  onAddRowAfter: (afterId?: string) => string;
-  onRemoveRow: (id: string) => void;
-  onTimeChange: (id: string, value: string) => void;
-  onExport: () => void;
-  onImport: (file: File | null) => Promise<void>;
-  onReset: () => void;
-  onTestChime: () => void;
-  onCopyLink: () => void;
-  showSeconds: boolean;
-  onShowSecondsChange: (value: boolean) => void;
-};
+  showSeconds: boolean
+  onShowSecondsChange: (value: boolean) => void
+  use24Hour: boolean
+  onUse24HourChange: (value: boolean) => void
+  onTestChime: () => void
+}
+
+type AlarmContentProps = {
+  label: string
+  rows: BellRow[]
+  importError: string
+  onLabelChange: (value: string) => void
+  onAddRowAfter: (afterId?: string) => string
+  onRemoveRow: (id: string) => void
+  onTimeChange: (id: string, value: string) => void
+  onExport: () => void
+  onImport: (file: File | null) => Promise<void>
+  onReset: () => void
+  onCopyLink: () => void
+}
 
 function SettingsContent({
+  showSeconds,
+  onShowSecondsChange,
+  use24Hour,
+  onUse24HourChange,
+  onTestChime,
+}: SettingsContentProps) {
+  return (
+    <div className="flex flex-col gap-6">
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">表示設定</p>
+        <div className="flex items-start justify-between gap-4">
+          <label
+            htmlFor="show-seconds"
+            className="flex flex-col gap-1 font-semibold text-slate-100"
+          >
+            秒を表示
+            <span className="text-sm font-normal text-slate-400">
+              現在時刻に秒を表示するかを切り替えます。
+            </span>
+          </label>
+          <Switch
+            id="show-seconds"
+            checked={showSeconds}
+            onCheckedChange={onShowSecondsChange}
+          />
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <label
+            htmlFor="use-24h"
+            className="flex flex-col gap-1 font-semibold text-slate-100"
+          >
+            24時間表示
+            <span className="text-sm font-normal text-slate-400">
+              現在時刻と次のベルを24時間または12時間のどちらで表示するか切り替えます。
+            </span>
+          </label>
+          <Switch
+            id="use-24h"
+            checked={use24Hour}
+            onCheckedChange={onUse24HourChange}
+          />
+        </div>
+      </section>
+
+      <section className={settingsBlockClass}>
+        <p className="text-base font-semibold">ベルの音を確認</p>
+        <p className="text-sm text-slate-300">
+          ブラウザーが音を止めていると自動再生できません。最初に一度だけテストを押してください。
+        </p>
+        <button className={primaryButtonClass} onClick={onTestChime}>
+          <Play aria-hidden size={18} />
+          チャイムをテスト再生
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function AlarmContent({
   label,
   rows,
   importError,
@@ -581,47 +781,38 @@ function SettingsContent({
   onExport,
   onImport,
   onReset,
-  onTestChime,
   onCopyLink,
-  showSeconds,
-  onShowSecondsChange,
-}: SettingsContentProps) {
-  const inputRefs = useRef(new Map<string, HTMLInputElement>());
+}: AlarmContentProps) {
+  const inputRefs = useRef(new Map<string, HTMLInputElement>())
 
-  const focusInput = (id: string) => inputRefs.current.get(id)?.focus();
+  const focusInput = (id: string) => inputRefs.current.get(id)?.focus()
 
   const handleTimeKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement>,
     index: number,
     rowId: string,
   ) => {
-    const prevRow = rows[index - 1];
-    const nextRow = rows[index + 1];
+    const prevRow = rows[index - 1]
+    const nextRow = rows[index + 1]
 
-    if (
-      (event.key === "ArrowUp" || event.key === "ArrowLeft") &&
-      prevRow
-    ) {
-      event.preventDefault();
-      focusInput(prevRow.id);
-      return;
+    if ((event.key === "ArrowUp" || event.key === "ArrowLeft") && prevRow) {
+      event.preventDefault()
+      focusInput(prevRow.id)
+      return
     }
 
-    if (
-      (event.key === "ArrowDown" || event.key === "ArrowRight") &&
-      nextRow
-    ) {
-      event.preventDefault();
-      focusInput(nextRow.id);
-      return;
+    if ((event.key === "ArrowDown" || event.key === "ArrowRight") && nextRow) {
+      event.preventDefault()
+      focusInput(nextRow.id)
+      return
     }
 
     if (event.key === "Enter") {
-      event.preventDefault();
-      const newRowId = onAddRowAfter(rowId);
-      queueMicrotask(() => focusInput(newRowId));
+      event.preventDefault()
+      const newRowId = onAddRowAfter(rowId)
+      queueMicrotask(() => focusInput(newRowId))
     }
-  };
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -637,47 +828,32 @@ function SettingsContent({
       </section>
 
       <section className={settingsBlockClass}>
-        <p className="text-base font-semibold">表示設定</p>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <label htmlFor="show-seconds" className="flex flex-col gap-1 font-semibold text-slate-100">
-            秒を表示
-            <span className="text-sm font-normal text-slate-400">
-              現在時刻に秒を表示するかを切り替えます。
-            </span>
-          </label>
-          <Switch
-            id="show-seconds"
-            checked={showSeconds}
-            onCheckedChange={onShowSecondsChange}
-          />
-        </div>
-      </section>
-
-      <section className={settingsBlockClass}>
-        <p className="text-base font-semibold">ダウンロードと読み込み</p>
-        <div className="flex flex-wrap items-center gap-3">
+        <p className="text-base font-semibold">共有とデータ</p>
+        <div className="flex flex-col flex-wrap items-begin gap-3">
           <button className={ghostButtonClass} onClick={onCopyLink}>
             <Link2 aria-hidden size={18} />
             リンクをコピー
           </button>
-          <button className={primaryButtonClass} onClick={onExport}>
-            <Download aria-hidden size={18} />
-            時間割データをダウンロード
-          </button>
-          <label className={fileLabelClass}>
-            <Upload aria-hidden size={18} />
-            時間割データを読み込む
-            <input
-              className="absolute inset-0 cursor-pointer opacity-0"
-              type="file"
-              accept="application/json"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                void onImport(file);
-                event.target.value = "";
-              }}
-            />
-          </label>
+          <div className="flex gap-4">
+            <button className={primaryButtonClass} onClick={onExport}>
+              <Download aria-hidden size={18} />
+              時間割データをダウンロード
+            </button>
+            <label className={fileLabelClass}>
+              <Upload aria-hidden size={18} />
+              時間割データを読み込む
+              <input
+                className="absolute inset-0 cursor-pointer opacity-0"
+                type="file"
+                accept="application/json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  void onImport(file)
+                  event.target.value = ""
+                }}
+              />
+            </label>
+          </div>
           <button className={ghostButtonClass} onClick={onReset}>
             <RotateCcw aria-hidden size={18} />
             初期データに戻す
@@ -689,23 +865,15 @@ function SettingsContent({
       </section>
 
       <section className={settingsBlockClass}>
-        <p className="text-base font-semibold">ベルの音を確認</p>
-        <p className="text-sm text-slate-300">
-          ブラウザーが音を止めていると自動再生できません。最初に一度だけテストを押してください。
-        </p>
-        <button className={primaryButtonClass} onClick={onTestChime}>
-          <Play aria-hidden size={18} />
-          チャイムをテスト再生
-        </button>
-      </section>
-
-      <section className={settingsBlockClass}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-base font-semibold">ベルの時間</p>
         </div>
         <ol className="space-y-3">
           {rows.map((row, index) => (
-            <li key={row.id} className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2">
+            <li
+              key={row.id}
+              className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2"
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20 font-semibold text-sky-100">
                 {index + 1}
               </span>
@@ -716,9 +884,9 @@ function SettingsContent({
                 aria-label={`チャイム時刻 ${index + 1}`}
                 ref={(element) => {
                   if (element) {
-                    inputRefs.current.set(row.id, element);
+                    inputRefs.current.set(row.id, element)
                   } else {
-                    inputRefs.current.delete(row.id);
+                    inputRefs.current.delete(row.id)
                   }
                 }}
                 onChange={(event) => onTimeChange(row.id, event.target.value)}
@@ -742,7 +910,7 @@ function SettingsContent({
         </div>
       </section>
     </div>
-  );
+  )
 }
 
 function CopyrightContent() {
@@ -779,7 +947,7 @@ function CopyrightContent() {
         </p>
       </article>
     </div>
-  );
+  )
 }
 
 function GuideContent() {
@@ -804,7 +972,7 @@ function GuideContent() {
       title: "5. 困ったら",
       body: "音が出ないときは「チャイムをテスト再生」を一度押します。時刻を消してしまっても Enter で新しい行を追加できます。",
     },
-  ];
+  ]
   return (
     <div className="space-y-4">
       {steps.map((step) => (
@@ -828,44 +996,44 @@ function GuideContent() {
         </a>
       </p>
     </div>
-  );
+  )
 }
 
 async function playChime(audio: HTMLAudioElement | null) {
-  if (!audio) return;
+  if (!audio) return
   try {
-    audio.currentTime = 0;
-    await audio.play();
-    return;
+    audio.currentTime = 0
+    await audio.play()
+    return
   } catch {
     // fallback to Web Audio API when autoplay is blocked
   }
   const AudioContextRef =
     typeof window !== "undefined"
-      ? window.AudioContext ?? window.webkitAudioContext
-      : undefined;
-  if (!AudioContextRef) return;
-  const ctx = new AudioContextRef();
+      ? (window.AudioContext ?? window.webkitAudioContext)
+      : undefined
+  if (!AudioContextRef) return
+  const ctx = new AudioContextRef()
   const sequence = [
     { freq: 659.25, duration: 0.6 },
     { freq: 523.25, duration: 0.6 },
     { freq: 587.33, duration: 0.6 },
     { freq: 523.25, duration: 0.9 },
-  ];
-  let start = ctx.currentTime;
+  ]
+  let start = ctx.currentTime
   for (const note of sequence) {
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = note.freq;
-    gain.gain.setValueAtTime(0.001, start);
-    gain.gain.exponentialRampToValueAtTime(0.4, start + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + note.duration);
-    oscillator.connect(gain).connect(ctx.destination);
-    oscillator.start(start);
-    oscillator.stop(start + note.duration);
-    start += note.duration;
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+    oscillator.type = "sine"
+    oscillator.frequency.value = note.freq
+    gain.gain.setValueAtTime(0.001, start)
+    gain.gain.exponentialRampToValueAtTime(0.4, start + 0.05)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
+    oscillator.connect(gain).connect(ctx.destination)
+    oscillator.start(start)
+    oscillator.stop(start + note.duration)
+    start += note.duration
   }
-  const cleanupTime = start + 0.5;
-  window.setTimeout(() => ctx.close(), (cleanupTime - ctx.currentTime) * 1000);
+  const cleanupTime = start + 0.5
+  window.setTimeout(() => ctx.close(), (cleanupTime - ctx.currentTime) * 1000)
 }

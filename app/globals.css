@@ -6,14 +6,14 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --background: #010510;
     --foreground: #f8fafc;
+    --background: #010510;
     --card: #010510;
     --card-foreground: #f8fafc;
     --popover: #010510;
     --popover-foreground: #f8fafc;
-    --primary: #0ea5e9;
-    --primary-foreground: #0f172a;
+    --primary: #c27f2e;
+    --primary-foreground: #f8fafc;
     --secondary: #1e293b;
     --secondary-foreground: #f8fafc;
     --muted: #1e293b;
@@ -23,7 +23,8 @@
     --destructive: #dc2626;
     --destructive-foreground: #f8fafc;
     --border: rgba(255, 255, 255, 0.12);
-    --input: rgba(148, 163, 184, 0.4);
+    --input: rgba(248, 250, 252, 0.85);
+    --input-foreground: #f8fafc;
     --ring: rgba(14, 165, 233, 0.7);
   }
 
@@ -45,12 +46,25 @@
     --destructive: #b91c1c;
     --destructive-foreground: #f8fafc;
     --border: rgba(255, 255, 255, 0.18);
-    --input: rgba(148, 163, 184, 0.4);
+    --input: rgba(248, 250, 252, 0.9);
+    --input-foreground: #f8fafc;
     --ring: rgba(248, 250, 252, 0.6);
   }
 }
 
 @layer utilities {
+  .switch-track[data-state="checked"] {
+    background-color: var(--primary);
+  }
+  .switch-track[data-state="unchecked"] {
+    background-color: var(--input);
+  }
+  .switch-thumb[data-state="checked"] {
+    background-color: var(--primary-foreground);
+  }
+  .switch-thumb[data-state="unchecked"] {
+    background-color: var(--input-foreground);
+  }
   .bg-background {
     background-color: var(--background);
   }
@@ -104,6 +118,12 @@
   }
   .border-input {
     border-color: var(--input);
+  }
+  .bg-input {
+    background-color: var(--input);
+  }
+  .text-input-foreground {
+    color: var(--input-foreground);
   }
   .ring-ring {
     --tw-ring-color: var(--ring);
