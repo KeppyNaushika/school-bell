@@ -1,5 +1,6 @@
 "use client"
 
+import { Switch } from "@/components/ui/switch"
 import {
   Bell,
   BellRing,
@@ -16,7 +17,6 @@ import {
   X,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Switch } from "@/components/ui/switch"
 
 declare global {
   interface Window {

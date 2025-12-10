@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
-const repoBase = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/^\/|\/$/g, "");
-const basePath = repoBase ? `/${repoBase}` : undefined;
+const repoBase = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(
+  /^\/|\/$/g,
+  "",
+)
+const basePath = repoBase ? `/${repoBase}` : undefined
 
 const nextConfig: NextConfig = {
   output: "export",
@@ -11,6 +14,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig
