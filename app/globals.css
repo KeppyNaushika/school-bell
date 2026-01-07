@@ -52,6 +52,21 @@
   }
 }
 
+@layer base {
+  body {
+    background: radial-gradient(circle at top, #e0e7ff, #f1f5f9 60%);
+    color: #0f172a;
+    transition:
+      background 0.3s ease,
+      color 0.3s ease;
+  }
+
+  .dark body {
+    background: radial-gradient(circle at top, #0f172a, #020617 60%);
+    color: #f8fafc;
+  }
+}
+
 @layer utilities {
   .switch-track[data-state="checked"] {
     background-color: var(--primary);

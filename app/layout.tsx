@@ -21,9 +21,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" className="dark">
       <body
-        className={`${mPlus.variable} min-h-screen bg-[radial-gradient(circle_at_top,#0f172a,#020617_60%)] text-slate-50 antialiased`}
+        className={`${mPlus.variable} min-h-screen antialiased`}
         style={{
           fontFamily:
             'var(--font-mplus), "M PLUS Rounded 1c", "M PLUS 1p", "BIZ UDPGothic", "Yu Gothic", "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',

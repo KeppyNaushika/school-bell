@@ -8,10 +8,12 @@ import {
   Download,
   HelpCircle,
   Link2,
+  Moon,
   Play,
   Plus,
   RotateCcw,
   Settings,
+  Sun,
   Trash2,
   Upload,
   X,
@@ -38,12 +40,14 @@ type StoredPayload = {
   rows: { time: string }[]
   showSeconds?: boolean
   use24Hour?: boolean
+  darkMode?: boolean
 }
 
 const STORAGE_KEY = "school-bell-settings@v1"
 const DEFAULT_LABEL = "標準設定"
 const DEFAULT_SHOW_SECONDS = true
 const DEFAULT_24_HOUR = true
+const DEFAULT_DARK_MODE = true
 const DEFAULT_TIMES = ["08:15"]
 
 const newId = () =>
@@ -126,21 +130,21 @@ const buildTimesParam = (rows: BellRow[]) =>
     .join("-")
 
 const primaryButtonClass =
-  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35"
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-600/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-600"
 const ghostButtonClass =
-  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-500/20 px-5 py-2.5 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-slate-500/30"
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-200/80 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-slate-300/90 dark:bg-slate-500/20 dark:text-slate-100 dark:hover:bg-slate-500/30"
 const iconButtonClass =
-  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 text-slate-100 transition hover:bg-slate-800 hover:-translate-y-0.5"
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-200/80 text-slate-700 transition hover:bg-slate-300 hover:-translate-y-0.5 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800"
 const dangerIconButtonClass =
-  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-rose-500/20 text-rose-100 transition hover:bg-rose-500/30 hover:-translate-y-0.5"
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-rose-500/20 text-rose-600 transition hover:bg-rose-500/30 hover:-translate-y-0.5 dark:text-rose-100"
 const floatingButtonClass =
-  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-900/70 p-0 text-slate-100 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800"
+  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-200/80 p-0 text-slate-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-300 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800"
 const fileLabelClass =
-  "relative inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/20 px-5 py-2.5 text-sm font-semibold text-sky-50 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/35"
+  "relative inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-600/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-600"
 const inputClass =
-  "w-full appearance-none rounded-xl border border-slate-500/40 bg-slate-900/60 px-4 py-3 text-base text-slate-50 outline-none transition placeholder:text-slate-400 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-400/30"
+  "w-full appearance-none rounded-xl border border-slate-300 bg-white/80 px-4 py-3 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-400/30 dark:border-slate-500/40 dark:bg-slate-900/60 dark:text-slate-50"
 const settingsBlockClass =
-  "space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-xl"
+  "space-y-3 rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-xl dark:border-white/10 dark:bg-slate-950/70"
 const readStoredPayload = (): StoredPayload | null => {
   if (typeof window === "undefined") return null
   try {
@@ -160,6 +164,7 @@ export default function Home() {
   const [now, setNow] = useState<Date | null>(null)
   const [showSeconds, setShowSeconds] = useState(DEFAULT_SHOW_SECONDS)
   const [use24Hour, setUse24Hour] = useState(DEFAULT_24_HOUR)
+  const [darkMode, setDarkMode] = useState(DEFAULT_DARK_MODE)
   const [statusMessage, setStatusMessage] = useState("")
   const [importError, setImportError] = useState("")
   const [controlsVisible, setControlsVisible] = useState(true)
@@ -274,8 +279,13 @@ export default function Home() {
       typeof stored?.use24Hour === "boolean"
         ? stored.use24Hour
         : DEFAULT_24_HOUR
+    const persistedDarkMode =
+      typeof stored?.darkMode === "boolean"
+        ? stored.darkMode
+        : DEFAULT_DARK_MODE
     setShowSeconds(persistedSeconds)
     setUse24Hour(persistedFormat)
+    setDarkMode(persistedDarkMode)
     hasLoadedFromQuery.current = true
     lastSyncedTimes.current = timesValue
     lastSyncedLabel.current = labelValue
@@ -287,6 +297,7 @@ export default function Home() {
           rows: parsedTimes.map((time) => ({ time })),
           showSeconds: persistedSeconds,
           use24Hour: persistedFormat,
+          darkMode: persistedDarkMode,
         }),
       )
     } catch {
@@ -302,6 +313,9 @@ export default function Home() {
     }
     if (typeof parsed.use24Hour === "boolean") {
       setUse24Hour(parsed.use24Hour)
+    }
+    if (typeof parsed.darkMode === "boolean") {
+      setDarkMode(parsed.darkMode)
     }
     if (hasLoadedFromQuery.current) return
     try {
@@ -329,12 +343,23 @@ export default function Home() {
           rows: rows.map((row) => ({ time: row.time })),
           showSeconds,
           use24Hour,
+          darkMode,
         }),
       )
     } catch {
       // ignore quota errors
     }
-  }, [label, rows, showSeconds, use24Hour])
+  }, [label, rows, showSeconds, use24Hour, darkMode])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const html = document.documentElement
+    if (darkMode) {
+      html.classList.add("dark")
+    } else {
+      html.classList.remove("dark")
+    }
+  }, [darkMode])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -509,6 +534,13 @@ export default function Home() {
       >
         <button
           className={floatingButtonClass}
+          aria-label={darkMode ? "ライトモードに切り替え" : "ダークモードに切り替え"}
+          onClick={() => setDarkMode((prev) => !prev)}
+        >
+          {darkMode ? <Sun aria-hidden size={18} /> : <Moon aria-hidden size={18} />}
+        </button>
+        <button
+          className={floatingButtonClass}
           aria-label="設定を開く"
           onClick={() => openPanel("settings")}
         >
@@ -541,7 +573,7 @@ export default function Home() {
         className="flex flex-col items-center gap-[clamp(1rem,5vw,4rem)] text-center"
         aria-live="polite"
       >
-        <p className="whitespace-nowrap text-[clamp(5rem,20vw,18rem)] font-bold leading-none text-white [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
+        <p className="whitespace-nowrap text-[clamp(5rem,20vw,18rem)] font-bold leading-none text-slate-800 dark:text-white [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
           {now ? (
             (() => {
               const time = formatTime(now, showSeconds, use24Hour)
@@ -571,10 +603,10 @@ export default function Home() {
             </>
           )}
         </p>
-        <div className="inline-flex items-center gap-4 text-[clamp(2rem,7vw,5rem)] text-white/70 [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
-          <Bell aria-hidden size={48} className="text-white" />
+        <div className="inline-flex items-center gap-4 text-[clamp(2rem,7vw,5rem)] text-slate-600 dark:text-white/70 [font-feature-settings:'tnum'] [font-variant-numeric:tabular-nums]">
+          <Bell aria-hidden size={48} className="text-slate-700 dark:text-white" />
           {!use24Hour && nextBell ? (
-            <span className="text-[0.5em] font-semibold uppercase text-slate-300">
+            <span className="text-[0.5em] font-semibold uppercase text-slate-500 dark:text-slate-300">
               {Number(nextBell.time.split(":")[0]) < 12 ? "am" : "pm"}
             </span>
           ) : null}
@@ -602,7 +634,7 @@ export default function Home() {
 
       {panel && (
         <div
-          className={`fixed inset-0 flex justify-end bg-slate-950/70 backdrop-blur-md transition-opacity duration-300 ${
+          className={`fixed inset-0 flex justify-end bg-slate-100/70 backdrop-blur-md transition-opacity duration-300 dark:bg-slate-950/70 ${
             isPanelVisible ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
           role="dialog"
@@ -610,7 +642,7 @@ export default function Home() {
           onClick={closePanel}
         >
           <aside
-            className={`flex h-full w-full max-w-xl flex-col gap-6 border-l border-white/10 bg-slate-950/90 p-6 shadow-2xl transition-transform duration-300 ${
+            className={`flex h-full w-full max-w-xl flex-col gap-6 border-l border-slate-200 bg-white/90 p-6 shadow-2xl transition-transform duration-300 dark:border-white/10 dark:bg-slate-950/90 ${
               isPanelVisible ? "translate-x-0" : "translate-x-full"
             }`}
             onClick={(event) => event.stopPropagation()}
@@ -681,7 +713,7 @@ export default function Home() {
       )}
 
       {statusMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-sky-600/90 px-6 py-3 text-sm font-semibold text-cyan-50 shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-2xl">
           {statusMessage}
         </div>
       )}
@@ -725,10 +757,10 @@ function SettingsContent({
         <div className="flex items-start justify-between gap-4">
           <label
             htmlFor="show-seconds"
-            className="flex flex-col gap-1 font-semibold text-slate-100"
+            className="flex flex-col gap-1 font-semibold text-slate-800 dark:text-slate-100"
           >
             秒を表示
-            <span className="text-sm font-normal text-slate-400">
+            <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
               現在時刻に秒を表示するかを切り替えます。
             </span>
           </label>
@@ -741,10 +773,10 @@ function SettingsContent({
         <div className="flex items-start justify-between gap-4">
           <label
             htmlFor="use-24h"
-            className="flex flex-col gap-1 font-semibold text-slate-100"
+            className="flex flex-col gap-1 font-semibold text-slate-800 dark:text-slate-100"
           >
             24時間表示
-            <span className="text-sm font-normal text-slate-400">
+            <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
               現在時刻と次のベルを24時間または12時間のどちらで表示するか切り替えます。
             </span>
           </label>
@@ -758,7 +790,7 @@ function SettingsContent({
 
       <section className={settingsBlockClass}>
         <p className="text-base font-semibold">ベルの音を確認</p>
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           ブラウザーが音を止めていると自動再生できません。最初に一度だけテストを押してください。
         </p>
         <button className={primaryButtonClass} onClick={onTestChime}>
@@ -860,7 +892,7 @@ function AlarmContent({
           </button>
         </div>
         {importError && (
-          <p className="text-sm font-semibold text-rose-200">{importError}</p>
+          <p className="text-sm font-semibold text-rose-600 dark:text-rose-200">{importError}</p>
         )}
       </section>
 
@@ -872,9 +904,9 @@ function AlarmContent({
           {rows.map((row, index) => (
             <li
               key={row.id}
-              className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2"
+              className="flex items-center gap-3 rounded-xl bg-slate-100/80 px-3 py-2 dark:bg-slate-800/80"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20 font-semibold text-sky-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20 font-semibold text-sky-700 dark:text-sky-100">
                 {index + 1}
               </span>
               <input
@@ -916,30 +948,30 @@ function AlarmContent({
 function CopyrightContent() {
   return (
     <div className="space-y-4">
-      <article className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg">
+      <article className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-lg dark:border-white/10 dark:bg-slate-950/70">
         <h3 className="text-lg font-semibold">音声素材について</h3>
-        <p className="leading-relaxed text-slate-300">
+        <p className="leading-relaxed text-slate-600 dark:text-slate-300">
           このアプリケーションで使用されているチャイム音は、
           <a
             href="https://www.nhk.or.jp/archives/creative/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sky-300 hover:text-sky-200 underline ml-1"
+            className="text-sky-600 hover:text-sky-500 underline ml-1 dark:text-sky-300 dark:hover:text-sky-200"
           >
             NHKクリエイティブ・ライブラリー
           </a>
           から提供されています。
         </p>
       </article>
-      <article className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg">
+      <article className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-lg dark:border-white/10 dark:bg-slate-950/70">
         <h3 className="text-lg font-semibold">利用規約</h3>
-        <p className="leading-relaxed text-slate-300">
+        <p className="leading-relaxed text-slate-600 dark:text-slate-300">
           音声素材の利用については、
           <a
             href="https://www.nhk.or.jp/archives/creative/rule.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sky-300 hover:text-sky-200 underline ml-1"
+            className="text-sky-600 hover:text-sky-500 underline ml-1 dark:text-sky-300 dark:hover:text-sky-200"
           >
             NHKクリエイティブ・ライブラリー利用規約
           </a>
@@ -978,13 +1010,13 @@ function GuideContent() {
       {steps.map((step) => (
         <article
           key={step.title}
-          className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-lg"
+          className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-lg dark:border-white/10 dark:bg-slate-950/70"
         >
           <h3 className="text-lg font-semibold">{step.title}</h3>
-          <p className="leading-relaxed text-slate-300">{step.body}</p>
+          <p className="leading-relaxed text-slate-600 dark:text-slate-300">{step.body}</p>
         </article>
       ))}
-      <p className="mt-4 text-center text-xs text-slate-400">
+      <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
         音声：
         <a
           href="https://www.nhk.or.jp/archives/creative/rule.html"
